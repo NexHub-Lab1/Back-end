@@ -1,0 +1,21 @@
+# IDEs y editores
+.idea/
+.vscode/
+*.iml
+
+# Gradle
+.gradle/
+build/
+!build/libs/*.jar
+
+# Entorno y logs
+.env
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
