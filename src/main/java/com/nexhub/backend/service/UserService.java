@@ -1,4 +1,4 @@
-package com.nexhub.backend.service.user;
+package com.nexhub.backend.service;
 
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.repository.UserRepository;
