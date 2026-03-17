@@ -2,6 +2,7 @@ package com.nexhub.backend.service;
 
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.repository.UserRepository;
+import com.nexhub.backend.utils.checker.UserChecker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -9,7 +10,6 @@ import java.util.List;
 
 @Service
 public class UserService {
-
     @Autowired
     private UserRepository userRepository;
 
@@ -29,6 +29,9 @@ public class UserService {
     }
 
     public User saveUser(User user) {
-        return userRepository.save(user);
+        if (UserChecker.isValid(user))
+            return userRepository.save(user);
+        return user;
     }
+
 }
