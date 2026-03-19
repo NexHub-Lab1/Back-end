@@ -3,9 +3,11 @@ package com.nexhub.backend.controller;
 import com.nexhub.backend.dto.ApiResponse;
 import com.nexhub.backend.dto.auth.AuthRequest;
 import com.nexhub.backend.dto.auth.AuthUserResponse;
+import com.nexhub.backend.dto.auth.DeleteAccountRequest;
 import com.nexhub.backend.dto.auth.ForgotPasswordRequest;
 import com.nexhub.backend.dto.auth.LoginRequest;
 import com.nexhub.backend.dto.auth.ResetPasswordRequest;
+import com.nexhub.backend.dto.auth.UpdateAccountRequest;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.service.AuthService;
 import org.springframework.http.HttpStatus;
@@ -67,6 +69,32 @@ public class AuthController {
         try {
             String message = authService.resetPassword(request.email(), request.newPassword());
             return ResponseEntity.ok(ApiResponse.success(message, null));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/deleteaccount")
+    public ResponseEntity<ApiResponse<String>> deleteAccount(@RequestBody DeleteAccountRequest request) {
+        try {
+            String message = authService.deleteAccount(request.email(), request.password());
+            return ResponseEntity.ok(ApiResponse.success(message, null));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/updateaccount")
+    public ResponseEntity<ApiResponse<AuthUserResponse>> updateAccount(@RequestBody UpdateAccountRequest request) {
+        try {
+            User user = authService.updateAccount(
+                    request.currentEmail(),
+                    request.currentPassword(),
+                    request.newUsername(),
+                    request.newEmail(),
+                    request.newPassword()
+            );
+            return ResponseEntity.ok(ApiResponse.success("Cuenta actualizada correctamente", AuthUserResponse.fromUser(user)));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }

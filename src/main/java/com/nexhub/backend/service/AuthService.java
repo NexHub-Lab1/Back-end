@@ -70,7 +70,7 @@ public class AuthService {
         userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        return "Usuario verificado. Ya se puede resetear la password";
+        return "Usuario verificado ,ya se puede resetear la password";
     }
 
     public String resetPassword(String email, String newPassword) {
@@ -87,9 +87,64 @@ public class AuthService {
         return "Password actualizada correctamente";
     }
 
+    public String deleteAccount(String email, String password) {
+        validateEmail(email);
+        validatePassword(password);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new IllegalArgumentException("Password incorrecta");
+        }
+
+        userRepository.delete(user);
+
+        return "Cuenta eliminada correctamente";
+    }
+
+    public User updateAccount(String currentEmail, String currentPassword, String newUsername, String newEmail, String newPassword) {
+        validateEmail(currentEmail);
+        validatePassword(currentPassword);
+
+        User user = userRepository.findByEmail(currentEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Password incorrecta");
+        }
+
+        if (newUsername != null && !newUsername.isBlank() && !newUsername.equals(user.getUsername())) {
+            if (userRepository.existsByUsername(newUsername)) {
+                throw new IllegalArgumentException("El username ya esta en uso");
+            }
+            user.setUsername(newUsername.trim());
+        }
+
+        if (newEmail != null && !newEmail.isBlank() && !newEmail.equals(user.getEmail())) {
+            validateEmail(newEmail);
+            if (userRepository.existsByEmail(newEmail)) {
+                throw new IllegalArgumentException("El email ya esta registrado");
+            }
+            user.setEmail(newEmail.trim());
+        }
+
+        if (newPassword != null && !newPassword.isBlank()) {
+            validatePassword(newPassword);
+            user.setPassword(passwordEncoder.encode(newPassword));
+        }
+
+        if (!UserChecker.usernameCheck(user) || !UserChecker.emailCheck(user)) {
+            throw new IllegalArgumentException("Los datos actualizados no son validos");
+        }
+
+        user.setUpdated_at(new Date(System.currentTimeMillis()));
+        return userRepository.save(user);
+    }
+
     private void validateEmail(String email) {
         if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("El email es obligatorio");
+            throw new IllegalArgumentException("El email es obligatorioo");
         }
     }
 
