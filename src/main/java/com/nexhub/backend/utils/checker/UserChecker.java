@@ -8,15 +8,22 @@ public class UserChecker {
     private static final String EMAIL_PATTERN = "^[A-Za-z0-9+_.-]+@(.+)$";
 
 
+    /**
+     * Validates user email against regex pattern
+     */
     public static boolean emailCheck(User user) {
         if (user.getEmail() == null || user.getEmail().isBlank()) {
             return false;
         }
+
         return Pattern.compile(EMAIL_PATTERN)
                 .matcher(user.getEmail())
                 .matches();
     }
 
+    /**
+     * Validates username length and no-space rule
+     */
     public static boolean usernameCheck(User user) {
         if (user.getUsername() == null) return false;
         String username = user.getUsername().trim();
