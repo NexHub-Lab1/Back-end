@@ -19,12 +19,12 @@ public class AuthService {
     }
 
     public User signup(String username, String email, String password) {
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(password));
+        User userToValidate = new User();
+        userToValidate.setUsername(username);
+        userToValidate.setEmail(email);
+        userToValidate.setPassword(password);
 
-        if (!UserChecker.isValid(user)) {
+        if (!UserChecker.isValid(userToValidate)) {
             throw new IllegalArgumentException("Los datos del usuario no son validos");
         }
 
@@ -35,6 +35,11 @@ public class AuthService {
         if (userRepository.existsByUsername(username)) {
             throw new IllegalArgumentException("El username ya esta en uso");
         }
+
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(password));
 
         Date now = new Date(System.currentTimeMillis());
         user.setCreated_at(now);
