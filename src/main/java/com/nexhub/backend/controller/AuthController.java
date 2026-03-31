@@ -100,9 +100,4 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }
     }
-
-   /* @PostMapping("/github")
-    public ResponseEntity<ApiResponse<String>> github() {
-    }
-*/
 }
