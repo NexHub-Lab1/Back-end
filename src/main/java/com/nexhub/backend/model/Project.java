@@ -64,6 +64,8 @@ public class Project {
     @Setter
     private Long stars_count;
 
+    @Getter
+    @Setter
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
             name = "project_tags",
@@ -72,7 +74,8 @@ public class Project {
     )
     private Set<Tag> tags = new HashSet<>();
 
-
+    @Getter
+    @Setter
     @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinTable(
             name = "devs_project",
