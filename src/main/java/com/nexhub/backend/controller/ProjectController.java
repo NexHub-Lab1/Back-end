@@ -1,77 +1,91 @@
 package com.nexhub.backend.controller;
 
 import com.nexhub.backend.dto.ApiResponse;
-import com.nexhub.backend.model.Project;
-import com.nexhub.backend.repository.ProjectRepository;
-import com.nexhub.backend.repository.UserRepository;
+import com.nexhub.backend.dto.project.ProjectRequest;
+import com.nexhub.backend.dto.project.ProjectResponse;
+import com.nexhub.backend.dto.project.ProjectUpdateRequest;
+import com.nexhub.backend.service.ProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.sql.Date;
 import java.util.List;
-import java.util.Optional;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequestMapping("/api/projects")
 @RequiredArgsConstructor
 public class ProjectController {
-    private final ProjectRepository projectRepository;
-    private final UserRepository userRepository;
+    private final ProjectService projectService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Project>>> getAll() {
-        return ResponseEntity
-                .status(200)
-                .body(
-                        ApiResponse.success(
-                                "List of projects",
-                                projectRepository.findAll()
-                        )
-                );
+    public ResponseEntity<ApiResponse<List<ProjectResponse>>> getAll() {
+        return ResponseEntity.ok(ApiResponse.success("List of projects", projectService.getAllProjects()));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProjectResponse>> getById(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Project found", projectService.getProjectById(id)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @GetMapping("/findbytag")
-    public ResponseEntity<ApiResponse<List<Project>>> getProjectsByTag(@RequestParam String tag) {
-        return ResponseEntity.status(200).body(
-                ApiResponse.success("List of projects", projectRepository.findAll())
-        );
+    public ResponseEntity<ApiResponse<List<ProjectResponse>>> getProjectsByTag(@RequestParam String tag) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("List of projects", projectService.getProjectsByTag(tag)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<Project>> create(@RequestBody Project request) {
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(
-                ApiResponse.success("created correctly", projectRepository.save(request))
-                );
+    public ResponseEntity<ApiResponse<ProjectResponse>> create(@RequestBody ProjectRequest request) {
+        try {
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(ApiResponse.success("Project created correctly", projectService.createProject(request)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @PostMapping("/addstar")
-    public ResponseEntity<ApiResponse<Project>> star(@RequestBody Long id) {
-        Optional<Project> project = projectRepository.findById(id);
-        if (project.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Project not found"));
-
-        project.get()
-                .setStars_count(project.get().getStars_count() + 1);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(
-                ApiResponse.success("star correctly", projectRepository.save(project.get()))
-        );
+    public ResponseEntity<ApiResponse<ProjectResponse>> star(@RequestBody Long id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Star added correctly", projectService.addStar(id)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @PostMapping("/delete")
-    public ResponseEntity<ApiResponse<Project>> delete(@RequestBody Long id) {
-        Optional<Project> p = projectRepository.findById(id);
-        return p.map(project -> ResponseEntity.status(HttpStatus.ACCEPTED).body(
-                ApiResponse.success("Deleted successfully", project)
-        )).orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Project not found")));
+    public ResponseEntity<ApiResponse<ProjectResponse>> delete(@RequestBody Long id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Deleted successfully", projectService.deleteProject(id)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @PostMapping("/updateproject")
-    public ResponseEntity<ApiResponse<Project>> update(@RequestBody Project request) {
-        if (projectRepository.findById(request.getId()).isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Project not found"));
-
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(
-                ApiResponse.success("updated correctly", projectRepository.save(projectRepository.save(request)))
-        );
+    public ResponseEntity<ApiResponse<ProjectResponse>> update(@RequestBody ProjectUpdateRequest request) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Updated correctly", projectService.updateProject(request)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
     }
 }

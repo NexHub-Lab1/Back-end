@@ -1,11 +1,5 @@
 package com.nexhub.backend.model;
 
-import java.sql.Date;
-import java.util.HashSet;
-import java.util.Set;
-
-import org.springframework.data.annotation.Id;
-
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -15,9 +9,17 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.sql.Date;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.springframework.data.annotation.Id;
 
 @Entity
 @Table(name = "projects")
@@ -28,8 +30,10 @@ public class Project {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "users.id", nullable = false)
+    @Getter
+    @Setter
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
     @Getter
@@ -50,6 +54,10 @@ public class Project {
 
     @Getter
     @Setter
+    private Date created_at;
+
+    @Getter
+    @Setter
     private Date updated_at;
 
     @Getter
@@ -66,7 +74,7 @@ public class Project {
 
     @Getter
     @Setter
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinTable(
             name = "project_tags",
             joinColumns = @JoinColumn(name = "project_id"),
@@ -76,11 +84,39 @@ public class Project {
 
     @Getter
     @Setter
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinTable(
             name = "devs_project",
             joinColumns = @JoinColumn(name = "project_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
     private Set<User> contributors = new HashSet<>();
+
+    @PrePersist
+    void prePersist() {
+        Date now = new Date(System.currentTimeMillis());
+        if (created_at == null) {
+            created_at = now;
+        }
+        if (updated_at == null) {
+            updated_at = now;
+        }
+        if (last_active_at == null) {
+            last_active_at = now;
+        }
+        if (status == null || status.isBlank()) {
+            status = "active";
+        }
+        if (completed_tasks_count == null) {
+            completed_tasks_count = 0L;
+        }
+        if (stars_count == null) {
+            stars_count = 0L;
+        }
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        updated_at = new Date(System.currentTimeMillis());
+    }
 }
