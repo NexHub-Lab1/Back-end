@@ -12,21 +12,22 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
-@Table(name = "project_tags")
-@Data // Si usas Lombok
+@Table(name = "tags")
+@Getter
+@Setter
 public class Tag {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String name; // Ej: "Spring Boot", "Tailwind", "Python"
+    private String name;
 
-    // Relación inversa (opcional, para saber qué proyectos tienen este tag)
     @ManyToMany(mappedBy = "tags")
-    @JsonIgnore // Para evitar bucles infinitos en el JSON
+    @JsonIgnore
     private Set<Project> projects = new HashSet<>();
 }
