@@ -10,6 +10,7 @@ import com.nexhub.backend.dto.auth.ResetPasswordRequest;
 import com.nexhub.backend.dto.auth.UpdateAccountRequest;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.service.AuthService;
+import com.nexhub.backend.utils.JwtUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,21 +18,31 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService authService;
+    private final JwtUtils jwtUtils;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, JwtUtils jwtUtils) {
         this.authService = authService;
+        this.jwtUtils = jwtUtils;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthUserResponse>> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> login(@RequestBody LoginRequest request) {
         try {
             User user = authService.login(request.email(), request.password());
-            return ResponseEntity.ok(ApiResponse.success("Login exitoso", AuthUserResponse.fromUser(user)
-            ));
+            String token = jwtUtils.generateToken(user.getEmail());
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("user", AuthUserResponse.fromUser(user));
+            data.put("token", token);
+
+            return ResponseEntity.ok(ApiResponse.success("Login exitoso", data));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(e.getMessage()));
         }
