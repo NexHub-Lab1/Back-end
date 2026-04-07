@@ -1,8 +1,7 @@
 package com.nexhub.backend.controller;
 
-import com.nexhub.backend.model.Project;
-import com.nexhub.backend.repository.ProjectRepository;
-import com.nexhub.backend.repository.UserRepository;
+import com.nexhub.backend.dto.project.ProjectResponse;
+import com.nexhub.backend.service.ProjectService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,10 +13,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.Collections;
-import java.util.Optional;
+import java.sql.Date;
+import java.util.List;
+import java.util.NoSuchElementException;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -28,17 +27,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProjectControllerTest {
 
     @Mock
-    private ProjectRepository projectRepository;
-
-    @Mock
-    private UserRepository userRepository;
+    private ProjectService projectService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        // Setup manual del controller inyectando los mocks
-        mockMvc = MockMvcBuilders.standaloneSetup(new ProjectController(projectRepository, userRepository)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new ProjectController(projectService)).build();
     }
 
     @Nested
@@ -46,16 +41,54 @@ class ProjectControllerTest {
     class GetAllProjectsTests {
 
         @Test
-        @DisplayName("Debe retornar la lista de proyectos exitosamente")
         void returnsListOfProjects() throws Exception {
-            Project project = sampleProject();
-            when(projectRepository.findAll()).thenReturn(Collections.singletonList(project));
+            when(projectService.getAllProjects()).thenReturn(List.of(sampleResponse()));
 
-            mockMvc.perform(get("/api/projects")
-                            .contentType(MediaType.APPLICATION_JSON))
+            mockMvc.perform(get("/api/projects"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("success"))
-                    .andExpect(jsonPath("$.data[0].name").value("NexHub"));
+                    .andExpect(jsonPath("$.data[0].name").value("NexHub"))
+                    .andExpect(jsonPath("$.data[0].ownerUsername").value("manu"));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/projects/{id}")
+    class GetProjectByIdTests {
+
+        @Test
+        void returnsProjectWhenItExists() throws Exception {
+            when(projectService.getProjectById(1L)).thenReturn(sampleResponse());
+
+            mockMvc.perform(get("/api/projects/1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("success"))
+                    .andExpect(jsonPath("$.data.id").value(1));
+        }
+
+        @Test
+        void returnsNotFoundWhenProjectDoesNotExist() throws Exception {
+            when(projectService.getProjectById(99L)).thenThrow(new NoSuchElementException("Project not found"));
+
+            mockMvc.perform(get("/api/projects/99"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.status").value("error"))
+                    .andExpect(jsonPath("$.message").value("Project not found"));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/projects/findbytag")
+    class GetProjectsByTagTests {
+
+        @Test
+        void returnsFilteredProjects() throws Exception {
+            when(projectService.getProjectsByTag("AI")).thenReturn(List.of(sampleResponse()));
+
+            mockMvc.perform(get("/api/projects/findbytag").param("tag", "AI"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("success"))
+                    .andExpect(jsonPath("$.data[0].tags[0]").value("AI"));
         }
     }
 
@@ -64,22 +97,25 @@ class ProjectControllerTest {
     class CreateProjectTests {
 
         @Test
-        @DisplayName("Debe crear un proyecto y retornar status ACCEPTED")
         void returnsCreatedProject() throws Exception {
-            Project project = sampleProject();
-            when(projectRepository.save(any(Project.class))).thenReturn(project);
+            when(projectService.createProject(org.mockito.ArgumentMatchers.any())).thenReturn(sampleResponse());
 
             mockMvc.perform(post("/api/projects")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
+                                      "ownerId": 7,
                                       "name": "NexHub",
-                                      "description": "Platform for builders"
+                                      "description": "Platform for builders",
+                                      "githubRepo": "nexhub/backend",
+                                      "status": "active",
+                                      "tags": ["AI", "Open Source"]
                                     }
                                     """))
-                    .andExpect(status().isAccepted())
+                    .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.status").value("success"))
-                    .andExpect(jsonPath("$.message").value("created correctly"));
+                    .andExpect(jsonPath("$.message").value("Project created correctly"))
+                    .andExpect(jsonPath("$.data.name").value("NexHub"));
         }
     }
 
@@ -88,41 +124,111 @@ class ProjectControllerTest {
     class AddStarTests {
 
         @Test
-        @DisplayName("Debe sumar una estrella cuando el proyecto existe")
         void addsStarWhenProjectExists() throws Exception {
-            Project project = sampleProject();
-            project.setStars_count(10L);
+            ProjectResponse response = sampleResponse();
+            response = new ProjectResponse(
+                    response.id(),
+                    response.ownerId(),
+                    response.ownerUsername(),
+                    response.name(),
+                    response.description(),
+                    response.githubRepo(),
+                    response.status(),
+                    response.createdAt(),
+                    response.updatedAt(),
+                    response.lastActiveAt(),
+                    response.completedTasksCount(),
+                    11L,
+                    response.contributorCount(),
+                    response.tags()
+            );
 
-            when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
-            when(projectRepository.save(any(Project.class))).thenReturn(project);
+            when(projectService.addStar(1L)).thenReturn(response);
 
             mockMvc.perform(post("/api/projects/addstar")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("1"))
-                    .andExpect(status().isAccepted())
-                    .andExpect(jsonPath("$.message").value("star correctly"));
-        }
-
-        @Test
-        @DisplayName("Debe retornar error cuando el proyecto no existe")
-        void returnsErrorWhenProjectNotFound() throws Exception {
-            when(projectRepository.findById(99L)).thenReturn(Optional.empty());
-
-            mockMvc.perform(post("/api/projects/addstar")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("99"))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.status").value("error"))
-                    .andExpect(jsonPath("$.message").value("Project not found"));
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Star added correctly"))
+                    .andExpect(jsonPath("$.data.starsCount").value(11));
         }
     }
 
-    // Helper para crear un proyecto de prueba
-    private static Project sampleProject() {
-        Project project = new Project();
-        project.setName("NexHub");
-        project.setDescription("Platform for builders");
-        project.setStars_count(0L);
-        return project;
+    @Nested
+    @DisplayName("POST /api/projects/delete")
+    class DeleteProjectTests {
+
+        @Test
+        void deletesExistingProject() throws Exception {
+            when(projectService.deleteProject(1L)).thenReturn(sampleResponse());
+
+            mockMvc.perform(post("/api/projects/delete")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Deleted successfully"))
+                    .andExpect(jsonPath("$.data.id").value(1));
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/projects/updateproject")
+    class UpdateProjectTests {
+
+        @Test
+        void updatesProject() throws Exception {
+            ProjectResponse updated = new ProjectResponse(
+                    1L,
+                    7L,
+                    "manu",
+                    "NexHub API",
+                    "Platform for builders",
+                    "nexhub/backend",
+                    "active",
+                    Date.valueOf("2026-04-01"),
+                    Date.valueOf("2026-04-02"),
+                    Date.valueOf("2026-04-02"),
+                    0L,
+                    10L,
+                    0,
+                    List.of("AI", "Open Source")
+            );
+            when(projectService.updateProject(org.mockito.ArgumentMatchers.any())).thenReturn(updated);
+
+            mockMvc.perform(post("/api/projects/updateproject")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "id": 1,
+                                      "name": "NexHub API",
+                                      "description": "Platform for builders",
+                                      "githubRepo": "nexhub/backend",
+                                      "status": "active",
+                                      "tags": ["AI", "Open Source"]
+                                    }
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Updated correctly"))
+                    .andExpect(jsonPath("$.data.name").value("NexHub API"));
+        }
+    }
+
+    private static ProjectResponse sampleResponse() {
+        return new ProjectResponse(
+                1L,
+                7L,
+                "manu",
+                "NexHub",
+                "Platform for builders",
+                "nexhub/backend",
+                "active",
+                Date.valueOf("2026-04-01"),
+                Date.valueOf("2026-04-01"),
+                Date.valueOf("2026-04-01"),
+                0L,
+                10L,
+                0,
+                List.of("AI", "Open Source")
+        );
     }
 }
