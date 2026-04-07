@@ -1,7 +1,9 @@
-POST http://localhost:8081/api/auth/signup HTTP/1.1
+POST http://localhost:8081/api/projects HTTP/1.1
 Content-Type: application/json
+
 {
-    "name": "Nexhub",
-    "githubRepo": "top.com",
+  "Owner_id": 1,
+  "name": "Nexhub",
+  "githubRepo": "top.com",
   "description": "asdds"
 }
