@@ -10,14 +10,12 @@ import com.nexhub.backend.repository.ProjectRepository;
 import com.nexhub.backend.repository.TagRepository;
 import com.nexhub.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.repository.core.support.RepositoryMethodInvocationListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Date;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -182,5 +180,13 @@ public class ProjectService {
 
     private Date now() {
         return new Date(System.currentTimeMillis());
+    }
+
+    public List<ProjectResponse> getProjectsByOwner(Long ownerId) {
+        List<Project> projects = projectRepository.findByOwner_Id(ownerId);
+        List<ProjectResponse> projectResponses = new ArrayList<>();
+        for (Project project : projects)
+            projectResponses.add(ProjectResponse.fromProject(project));
+        return projectResponses;
     }
 }
