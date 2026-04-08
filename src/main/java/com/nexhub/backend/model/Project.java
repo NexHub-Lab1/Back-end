@@ -19,14 +19,11 @@ import java.sql.Date;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.springframework.data.annotation.Id;
-
 @Entity
 @Table(name = "projects")
 public class Project {
     @Getter
     @jakarta.persistence.Id
-    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
