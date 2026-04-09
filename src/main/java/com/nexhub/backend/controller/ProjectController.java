@@ -88,4 +88,15 @@ public class ProjectController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }
     }
+
+    @GetMapping("/owner/{owner}")
+    public ResponseEntity<ApiResponse<List<ProjectResponse>>> getOwnedProjects(@PathVariable Long owner) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Projects", projectService.getProjectsByOwner(owner)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
 }
