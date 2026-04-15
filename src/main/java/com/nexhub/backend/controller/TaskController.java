@@ -3,6 +3,7 @@ package com.nexhub.backend.controller;
 import com.nexhub.backend.dto.ApiResponse;
 import com.nexhub.backend.dto.task.TaskRequest;
 import com.nexhub.backend.dto.task.TaskResponse;
+import com.nexhub.backend.dto.task.TaskUpdateRequest;
 import com.nexhub.backend.service.TaskService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -48,6 +49,28 @@ public class TaskController {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("Task created correctly", taskService.createTask(request)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/delete")
+    public ResponseEntity<ApiResponse<TaskResponse>> delete(@RequestBody Long id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Deleted successfully", taskService.deleteTask(id)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/updatetask")
+    public ResponseEntity<ApiResponse<TaskResponse>> update(@RequestBody TaskUpdateRequest request) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Updated correctly", taskService.updateTask(request)));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         } catch (IllegalArgumentException e) {

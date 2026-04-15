@@ -2,6 +2,7 @@ package com.nexhub.backend.service;
 
 import com.nexhub.backend.dto.task.TaskRequest;
 import com.nexhub.backend.dto.task.TaskResponse;
+import com.nexhub.backend.dto.task.TaskUpdateRequest;
 import com.nexhub.backend.model.Project;
 import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.Task;
@@ -71,6 +72,59 @@ public class TaskService {
         task.setRecommendedSkills(resolveTags(request.recommendedSkills()));
 
         return TaskResponse.fromTask(taskRepository.save(task));
+    }
+
+    public TaskResponse updateTask(TaskUpdateRequest request) {
+        if (request == null || request.id() == null) {
+            throw new IllegalArgumentException("Task id is required");
+        }
+
+        Task task = findExistingTask(request.id());
+
+        if (request.projectId() != null) {
+            Project project = projectRepository.findById(request.projectId())
+                    .orElseThrow(() -> new NoSuchElementException("Project not found"));
+            task.setProject(project);
+        }
+        if (request.title() != null && !request.title().isBlank()) {
+            task.setTitle(request.title().trim());
+        }
+        if (request.description() != null && !request.description().isBlank()) {
+            task.setDescription(request.description().trim());
+        }
+        if (request.deliverables() != null) {
+            task.setDeliverables(normalizeOptionalText(request.deliverables()));
+        }
+        if (request.rewardAmount() != null) {
+            task.setRewardAmount(request.rewardAmount().stripTrailingZeros());
+        }
+        if (request.rewardCurrency() != null && !request.rewardCurrency().isBlank()) {
+            task.setRewardCurrency(normalizeCurrency(request.rewardCurrency()));
+        }
+        if (request.deadline() != null) {
+            task.setDeadline(request.deadline());
+        }
+        if (request.status() != null && !request.status().isBlank()) {
+            task.setStatus(normalizeStatus(request.status()));
+        }
+        if (request.maxAttempts() != null) {
+            task.setMaxAttempts(normalizeMaxAttempts(request.maxAttempts()));
+        }
+        if (request.recommendedSkills() != null) {
+            task.setRecommendedSkills(resolveTags(request.recommendedSkills()));
+        }
+
+        validateTaskFields(task.getTitle(), task.getDescription(), task.getRewardAmount());
+        task.setUpdated_at(now());
+
+        return TaskResponse.fromTask(taskRepository.save(task));
+    }
+
+    public TaskResponse deleteTask(Long id) {
+        Task task = findExistingTask(id);
+        TaskResponse response = TaskResponse.fromTask(task);
+        taskRepository.delete(task);
+        return response;
     }
 
     private Task findExistingTask(Long id) {
