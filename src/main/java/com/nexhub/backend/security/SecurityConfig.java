@@ -3,6 +3,7 @@ package com.nexhub.backend.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -25,6 +26,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll() // Login y Signup libres
+                        .requestMatchers(HttpMethod.GET, "/api/projects", "/api/projects/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/tasks", "/api/tasks/**").permitAll()
                         .anyRequest().authenticated() // Lo demás (proyectos, etc.) protegido
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
