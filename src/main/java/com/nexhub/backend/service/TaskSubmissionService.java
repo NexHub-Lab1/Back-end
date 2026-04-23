@@ -1,5 +1,6 @@
 package com.nexhub.backend.service;
 
+import com.nexhub.backend.dto.PagedResponse;
 import com.nexhub.backend.dto.tasksubmission.TaskSubmissionRequest;
 import com.nexhub.backend.dto.tasksubmission.TaskSubmissionResponse;
 import com.nexhub.backend.dto.tasksubmission.TaskSubmissionUpdateRequest;
@@ -12,13 +13,13 @@ import com.nexhub.backend.repository.TaskAssignmentRepository;
 import com.nexhub.backend.repository.TaskSubmissionRepository;
 import com.nexhub.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Date;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
@@ -44,10 +45,10 @@ public class TaskSubmissionService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public List<TaskSubmissionResponse> getAllSubmissions() {
-        return taskSubmissionRepository.findAll().stream()
-                .map(TaskSubmissionResponse::fromTaskSubmission)
-                .toList();
+    public PagedResponse<TaskSubmissionResponse> getAllSubmissions(Pageable pageable) {
+        return PagedResponse.fromPage(
+                taskSubmissionRepository.findAll(pageable).map(TaskSubmissionResponse::fromTaskSubmission)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -56,36 +57,58 @@ public class TaskSubmissionService {
     }
 
     @Transactional(readOnly = true)
-    public List<TaskSubmissionResponse> getSubmissionsByTask(Long taskId) {
+    public PagedResponse<TaskSubmissionResponse> getSubmissionsByTask(Long taskId, Pageable pageable) {
         if (taskId == null) {
             throw new IllegalArgumentException("Task id is required");
         }
 
-        return taskSubmissionRepository.findByTaskIdOrderBySubmittedAtDesc(taskId).stream()
-                .map(TaskSubmissionResponse::fromTaskSubmission)
-                .toList();
+        return PagedResponse.fromPage(
+                taskSubmissionRepository.findByTaskId(taskId, pageable)
+                        .map(TaskSubmissionResponse::fromTaskSubmission)
+        );
     }
 
     @Transactional(readOnly = true)
-    public List<TaskSubmissionResponse> getSubmissionsByAssignment(Long assignmentId) {
+    public PagedResponse<TaskSubmissionResponse> getSubmissionsByAssignment(Long assignmentId, Pageable pageable) {
         if (assignmentId == null) {
             throw new IllegalArgumentException("Assignment id is required");
         }
 
-        return taskSubmissionRepository.findByAssignmentIdOrderBySubmittedAtDesc(assignmentId).stream()
-                .map(TaskSubmissionResponse::fromTaskSubmission)
-                .toList();
+        return PagedResponse.fromPage(
+                taskSubmissionRepository.findByAssignmentId(assignmentId, pageable)
+                        .map(TaskSubmissionResponse::fromTaskSubmission)
+        );
     }
 
     @Transactional(readOnly = true)
-    public List<TaskSubmissionResponse> getSubmissionsByUser(Long userId) {
+    public PagedResponse<TaskSubmissionResponse> getSubmissionsByUser(Long userId, Pageable pageable) {
         if (userId == null) {
             throw new IllegalArgumentException("User id is required");
         }
 
-        return taskSubmissionRepository.findByUserIdOrderBySubmittedAtDesc(userId).stream()
-                .map(TaskSubmissionResponse::fromTaskSubmission)
-                .toList();
+        return PagedResponse.fromPage(
+                taskSubmissionRepository.findByUserId(userId, pageable)
+                        .map(TaskSubmissionResponse::fromTaskSubmission)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<TaskSubmissionResponse> getSubmissionsToReview(Long reviewerId, String status, Pageable pageable) {
+        if (reviewerId == null) {
+            throw new IllegalArgumentException("Reviewer id is required");
+        }
+
+        if (status != null && !status.isBlank()) {
+            return PagedResponse.fromPage(
+                    taskSubmissionRepository.findByProjectOwnerIdAndStatus(reviewerId, status.trim(), pageable)
+                            .map(TaskSubmissionResponse::fromTaskSubmission)
+            );
+        }
+
+        return PagedResponse.fromPage(
+                taskSubmissionRepository.findByProjectOwnerId(reviewerId, pageable)
+                        .map(TaskSubmissionResponse::fromTaskSubmission)
+        );
     }
 
     public TaskSubmissionResponse createSubmission(TaskSubmissionRequest request) {

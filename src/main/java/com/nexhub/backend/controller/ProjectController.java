@@ -1,16 +1,18 @@
 package com.nexhub.backend.controller;
 
 import com.nexhub.backend.dto.ApiResponse;
+import com.nexhub.backend.dto.PagedResponse;
 import com.nexhub.backend.dto.project.ProjectRequest;
 import com.nexhub.backend.dto.project.ProjectResponse;
 import com.nexhub.backend.dto.project.ProjectUpdateRequest;
 import com.nexhub.backend.service.ProjectService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.NoSuchElementException;
 
 @RestController
@@ -20,8 +22,10 @@ public class ProjectController {
     private final ProjectService projectService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ProjectResponse>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.success("List of projects", projectService.getAllProjects()));
+    public ResponseEntity<ApiResponse<PagedResponse<ProjectResponse>>> getAll(
+            @PageableDefault(size = 9) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("List of projects", projectService.getAllProjects(pageable)));
     }
 
     @GetMapping("/{id}")
@@ -36,9 +40,12 @@ public class ProjectController {
     }
 
     @GetMapping("/findbytag")
-    public ResponseEntity<ApiResponse<List<ProjectResponse>>> getProjectsByTag(@RequestParam String tag) {
+    public ResponseEntity<ApiResponse<PagedResponse<ProjectResponse>>> getProjectsByTag(
+            @RequestParam String tag,
+            @PageableDefault(size = 9) Pageable pageable
+    ) {
         try {
-            return ResponseEntity.ok(ApiResponse.success("List of projects", projectService.getProjectsByTag(tag)));
+            return ResponseEntity.ok(ApiResponse.success("List of projects", projectService.getProjectsByTag(tag, pageable)));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
         }
@@ -101,9 +108,12 @@ public class ProjectController {
     }
 
     @GetMapping("/owner/{owner}")
-    public ResponseEntity<ApiResponse<List<ProjectResponse>>> getOwnedProjects(@PathVariable Long owner) {
+    public ResponseEntity<ApiResponse<PagedResponse<ProjectResponse>>> getOwnedProjects(
+            @PathVariable Long owner,
+            @PageableDefault(size = 9) Pageable pageable
+    ) {
         try {
-            return ResponseEntity.ok(ApiResponse.success("Projects", projectService.getProjectsByOwner(owner)));
+            return ResponseEntity.ok(ApiResponse.success("Projects", projectService.getProjectsByOwner(owner, pageable)));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         } catch (IllegalArgumentException e) {

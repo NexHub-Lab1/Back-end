@@ -1,5 +1,6 @@
 package com.nexhub.backend.service;
 
+import com.nexhub.backend.dto.PagedResponse;
 import com.nexhub.backend.dto.taskassignment.TaskAssignmentRequest;
 import com.nexhub.backend.dto.taskassignment.TaskAssignmentResponse;
 import com.nexhub.backend.dto.taskassignment.TaskAssignmentUpdateRequest;
@@ -11,11 +12,11 @@ import com.nexhub.backend.repository.TaskAssignmentRepository;
 import com.nexhub.backend.repository.TaskRepository;
 import com.nexhub.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Date;
-import java.util.List;
 import java.util.NoSuchElementException;
 
 @Service
@@ -29,10 +30,10 @@ public class TaskAssignmentService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public List<TaskAssignmentResponse> getAllAssignments() {
-        return taskAssignmentRepository.findAll().stream()
-                .map(TaskAssignmentResponse::fromTaskAssignment)
-                .toList();
+    public PagedResponse<TaskAssignmentResponse> getAllAssignments(Pageable pageable) {
+        return PagedResponse.fromPage(
+                taskAssignmentRepository.findAll(pageable).map(TaskAssignmentResponse::fromTaskAssignment)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -41,25 +42,34 @@ public class TaskAssignmentService {
     }
 
     @Transactional(readOnly = true)
-    public List<TaskAssignmentResponse> getAssignmentsByTask(Long taskId) {
+    public PagedResponse<TaskAssignmentResponse> getAssignmentsByTask(Long taskId, Pageable pageable) {
         if (taskId == null) {
             throw new IllegalArgumentException("Task id is required");
         }
 
-        return taskAssignmentRepository.findByTaskIdOrderByAssignedAtDesc(taskId).stream()
-                .map(TaskAssignmentResponse::fromTaskAssignment)
-                .toList();
+        return PagedResponse.fromPage(
+                taskAssignmentRepository.findByTaskId(taskId, pageable)
+                        .map(TaskAssignmentResponse::fromTaskAssignment)
+        );
     }
 
     @Transactional(readOnly = true)
-    public List<TaskAssignmentResponse> getAssignmentsByUser(Long userId) {
+    public PagedResponse<TaskAssignmentResponse> getAssignmentsByUser(Long userId, Pageable pageable, boolean openOnly) {
         if (userId == null) {
             throw new IllegalArgumentException("User id is required");
         }
 
-        return taskAssignmentRepository.findByUserIdOrderByAssignedAtDesc(userId).stream()
-                .map(TaskAssignmentResponse::fromTaskAssignment)
-                .toList();
+        if (openOnly) {
+            return PagedResponse.fromPage(
+                    taskAssignmentRepository.findOpenByUserId(userId, pageable)
+                            .map(TaskAssignmentResponse::fromTaskAssignment)
+            );
+        }
+
+        return PagedResponse.fromPage(
+                taskAssignmentRepository.findByUserId(userId, pageable)
+                        .map(TaskAssignmentResponse::fromTaskAssignment)
+        );
     }
 
     public TaskAssignmentResponse createAssignment(TaskAssignmentRequest request) {

@@ -82,7 +82,7 @@ class AuthControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("success"))
                     .andExpect(jsonPath("$.message").value("Login exitoso"))
-                    .andExpect(jsonPath("$.data.username").value("manu"));
+                    .andExpect(jsonPath("$.data.user.username").value("manu"));
         }
 
         @Test
