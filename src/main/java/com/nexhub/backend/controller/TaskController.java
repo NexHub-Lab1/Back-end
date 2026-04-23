@@ -67,6 +67,17 @@ public class TaskController {
         }
     }
 
+    @PostMapping("/cancel")
+    public ResponseEntity<ApiResponse<TaskResponse>> cancel(@RequestBody Long id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Cancelled successfully", taskService.cancelTask(id)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @PostMapping("/updatetask")
     public ResponseEntity<ApiResponse<TaskResponse>> update(@RequestBody TaskUpdateRequest request) {
         try {

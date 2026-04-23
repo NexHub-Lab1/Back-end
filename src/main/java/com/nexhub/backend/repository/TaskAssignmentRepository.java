@@ -8,6 +8,9 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, Long> {
+    boolean existsByTask_Id(Long taskId);
+    boolean existsByUser_Id(Long userId);
+
     @Query("select assignment from TaskAssignment assignment where assignment.task.id = :taskId order by assignment.assignedAt desc")
     List<TaskAssignment> findByTaskIdOrderByAssignedAtDesc(@Param("taskId") Long taskId);
 

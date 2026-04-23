@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
+    boolean existsByProject_Id(Long projectId);
+
     @Query("select task from Task task where task.project.id = :projectId order by task.created_at desc")
     List<Task> findByProjectIdOrderByCreated_atDesc(@Param("projectId") Long projectId);
 

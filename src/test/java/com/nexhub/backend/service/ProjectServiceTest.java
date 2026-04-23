@@ -8,6 +8,7 @@ import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.repository.ProjectRepository;
 import com.nexhub.backend.repository.TagRepository;
+import com.nexhub.backend.repository.TaskRepository;
 import com.nexhub.backend.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,6 +41,9 @@ class ProjectServiceTest {
     @Mock
     private TagRepository tagRepository;
 
+    @Mock
+    private TaskRepository taskRepository;
+
     @InjectMocks
     private ProjectService projectService;
 
@@ -66,7 +70,7 @@ class ProjectServiceTest {
                     7L,
                     "NexHub",
                     "Platform for builders",
-                    "nexhub/backend",
+                    "https://github.com/nexhub/backend",
                     null,
                     Set.of("AI", "Open Source")
             ));
@@ -122,11 +126,35 @@ class ProjectServiceTest {
         void deletesExistingProject() {
             Project project = sampleProject();
             when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+            when(taskRepository.existsByProject_Id(1L)).thenReturn(false);
 
             ProjectResponse response = projectService.deleteProject(1L);
 
             assertThat(response.id()).isEqualTo(1L);
             verify(projectRepository).delete(project);
+        }
+
+        @Test
+        void rejectsDeleteWhenProjectHasTasks() {
+            Project project = sampleProject();
+            when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+            when(taskRepository.existsByProject_Id(1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> projectService.deleteProject(1L))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Project has tasks and cannot be deleted. Archive it instead.");
+        }
+
+        @Test
+        void archivesExistingProject() {
+            Project project = sampleProject();
+            when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+            when(projectRepository.save(project)).thenReturn(project);
+
+            ProjectResponse response = projectService.archiveProject(1L);
+
+            assertThat(response.status()).isEqualTo("archived");
+            verify(projectRepository).save(project);
         }
     }
 
@@ -147,14 +175,14 @@ class ProjectServiceTest {
                     1L,
                     "NexHub API",
                     "Updated description",
-                    "nexhub/api",
+                    "https://github.com/nexhub/api",
                     "paused",
                     Set.of("Web3")
             ));
 
             assertThat(response.name()).isEqualTo("NexHub API");
             assertThat(response.description()).isEqualTo("Updated description");
-            assertThat(response.githubRepo()).isEqualTo("nexhub/api");
+            assertThat(response.githubRepo()).isEqualTo("https://github.com/nexhub/api");
             assertThat(response.status()).isEqualTo("paused");
             assertThat(response.tags()).containsExactly("Web3");
         }
@@ -165,11 +193,24 @@ class ProjectServiceTest {
                     7L,
                     " ",
                     "Platform for builders",
-                    "nexhub/backend",
+                    "https://github.com/nexhub/backend",
                     "active",
                     Set.of()
             ))).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Project name is required");
+        }
+
+        @Test
+        void rejectsInvalidGithubRepositoryUrlOnCreate() {
+            assertThatThrownBy(() -> projectService.createProject(new ProjectRequest(
+                    7L,
+                    "NexHub",
+                    "Platform for builders",
+                    "https://gitlab.com/nexhub/backend",
+                    "active",
+                    Set.of()
+            ))).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Project repository must be a valid GitHub repository URL");
         }
     }
 
@@ -194,7 +235,7 @@ class ProjectServiceTest {
         project.setOwner(sampleUser());
         project.setName("NexHub");
         project.setDescription("Platform for builders");
-        project.setGithubRepo("nexhub/backend");
+        project.setGithubRepo("https://github.com/nexhub/backend");
         project.setStatus("active");
         project.setCreated_at(Date.valueOf("2026-04-01"));
         project.setUpdated_at(Date.valueOf("2026-04-01"));

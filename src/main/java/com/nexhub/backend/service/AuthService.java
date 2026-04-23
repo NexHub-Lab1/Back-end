@@ -1,6 +1,9 @@
 package com.nexhub.backend.service;
 
 import com.nexhub.backend.model.User;
+import com.nexhub.backend.repository.ProjectRepository;
+import com.nexhub.backend.repository.TaskAssignmentRepository;
+import com.nexhub.backend.repository.TaskSubmissionRepository;
 import com.nexhub.backend.repository.UserRepository;
 import com.nexhub.backend.utils.checker.UserChecker;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -10,12 +13,27 @@ import java.sql.Date;
 
 @Service
 public class AuthService {
+    private static final String ACTIVE_STATUS = "active";
+    private static final String DEACTIVATED_STATUS = "deactivated";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ProjectRepository projectRepository;
+    private final TaskAssignmentRepository taskAssignmentRepository;
+    private final TaskSubmissionRepository taskSubmissionRepository;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AuthService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            ProjectRepository projectRepository,
+            TaskAssignmentRepository taskAssignmentRepository,
+            TaskSubmissionRepository taskSubmissionRepository
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.projectRepository = projectRepository;
+        this.taskAssignmentRepository = taskAssignmentRepository;
+        this.taskSubmissionRepository = taskSubmissionRepository;
     }
 
     public User signup(String username, String email, String password) {
@@ -45,6 +63,7 @@ public class AuthService {
         user.setCreated_at(now);
         user.setUpdated_at(now);
         user.setLast_active_at(now);
+        user.setStatus(ACTIVE_STATUS);
         user.setTotal_points(0);
         user.setStreak_day(0);
         user.setReputation_score(0);
@@ -55,6 +74,10 @@ public class AuthService {
     public User login(String email, String password) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        if (isDeactivated(user)) {
+            throw new IllegalArgumentException("La cuenta esta desactivada");
+        }
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new IllegalArgumentException("Password incorrecta");
@@ -102,8 +125,14 @@ public class AuthService {
             throw new IllegalArgumentException("Password incorrecta");
         }
 
-        userRepository.delete(user);
+        if (hasHistoricalActivity(user.getId())) {
+            user.setStatus(DEACTIVATED_STATUS);
+            user.setUpdated_at(new Date(System.currentTimeMillis()));
+            userRepository.save(user);
+            return "Cuenta desactivada correctamente";
+        }
 
+        userRepository.delete(user);
         return "Cuenta eliminada correctamente";
     }
 
@@ -162,5 +191,21 @@ public class AuthService {
         if (!UserChecker.passwordSecurityCheck(user)) {
             throw new IllegalArgumentException("La password debe tener al menos 8 caracteres");
         }
+    }
+
+    private boolean hasHistoricalActivity(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+
+        return projectRepository.existsByOwner_Id(userId)
+                || projectRepository.existsByContributors_Id(userId)
+                || taskAssignmentRepository.existsByUser_Id(userId)
+                || taskSubmissionRepository.existsByUser_Id(userId)
+                || taskSubmissionRepository.existsByReviewer_Id(userId);
+    }
+
+    private boolean isDeactivated(User user) {
+        return user.getStatus() != null && DEACTIVATED_STATUS.equalsIgnoreCase(user.getStatus());
     }
 }

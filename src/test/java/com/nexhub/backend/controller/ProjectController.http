@@ -4,6 +4,6 @@ Content-Type: application/json
 {
   "Owner_id": 1,
   "name": "Nexhub",
-  "githubRepo": "top.com",
+  "githubRepo": "https://github.com/nexhub/top",
   "description": "asdds"
 }
