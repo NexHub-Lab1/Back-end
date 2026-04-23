@@ -1,6 +1,9 @@
 package com.nexhub.backend.service;
 
 import com.nexhub.backend.model.User;
+import com.nexhub.backend.repository.ProjectRepository;
+import com.nexhub.backend.repository.TaskAssignmentRepository;
+import com.nexhub.backend.repository.TaskSubmissionRepository;
 import com.nexhub.backend.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,6 +33,15 @@ class AuthServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private ProjectRepository projectRepository;
+
+    @Mock
+    private TaskAssignmentRepository taskAssignmentRepository;
+
+    @Mock
+    private TaskSubmissionRepository taskSubmissionRepository;
 
     @InjectMocks
     private AuthService authService;
@@ -62,6 +74,7 @@ class AuthServiceTest {
             assertThat(savedUser.getTotal_points()).isZero();
             assertThat(savedUser.getStreak_day()).isZero();
             assertThat(savedUser.getReputation_score()).isZero();
+            assertThat(savedUser.getStatus()).isEqualTo("active");
             assertThat(savedUser.getCreated_at()).isNotNull();
             assertThat(savedUser.getUpdated_at()).isNotNull();
             assertThat(savedUser.getLast_active_at()).isNotNull();
@@ -123,6 +136,20 @@ class AuthServiceTest {
 
             verify(userRepository, never()).save(any());
         }
+
+        @Test
+        void rejectsDeactivatedUsers() {
+            User existingUser = userWithCredentials("manu", "manu@nexhub.dev", "hashed-password");
+            existingUser.setStatus("deactivated");
+            when(userRepository.findByEmail("manu@nexhub.dev")).thenReturn(Optional.of(existingUser));
+
+            assertThatThrownBy(() -> authService.login("manu@nexhub.dev", "securepass"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("La cuenta esta desactivada");
+
+            verify(passwordEncoder, never()).matches(any(), any());
+            verify(userRepository, never()).save(any());
+        }
     }
 
     @Nested
@@ -171,6 +198,23 @@ class AuthServiceTest {
 
             assertThat(result).isEqualTo("Cuenta eliminada correctamente");
             verify(userRepository).delete(existingUser);
+        }
+
+        @Test
+        void deactivatesUserWhenTheyHaveHistoricalActivity() {
+            User existingUser = userWithCredentials("manu", "manu@nexhub.dev", "hashed-password");
+            setId(existingUser, 7L);
+            when(userRepository.findByEmail("manu@nexhub.dev")).thenReturn(Optional.of(existingUser));
+            when(passwordEncoder.matches("securepass", "hashed-password")).thenReturn(true);
+            when(projectRepository.existsByOwner_Id(7L)).thenReturn(true);
+            when(userRepository.save(existingUser)).thenReturn(existingUser);
+
+            String result = authService.deleteAccount("manu@nexhub.dev", "securepass");
+
+            assertThat(result).isEqualTo("Cuenta desactivada correctamente");
+            assertThat(existingUser.getStatus()).isEqualTo("deactivated");
+            verify(userRepository).save(existingUser);
+            verify(userRepository, never()).delete(existingUser);
         }
     }
 

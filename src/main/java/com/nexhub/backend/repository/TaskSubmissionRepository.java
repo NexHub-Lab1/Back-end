@@ -8,6 +8,10 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface TaskSubmissionRepository extends JpaRepository<TaskSubmission, Long> {
+    boolean existsByTask_Id(Long taskId);
+    boolean existsByUser_Id(Long userId);
+    boolean existsByReviewer_Id(Long reviewerId);
+
     @Query("select submission from TaskSubmission submission where submission.task.id = :taskId order by submission.submittedAt desc")
     List<TaskSubmission> findByTaskIdOrderBySubmittedAtDesc(@Param("taskId") Long taskId);
 

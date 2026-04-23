@@ -11,4 +11,6 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findDistinctByTags_NameIgnoreCase(String tagName);
     List<Project> findByOwner_Id(Long id);
+    boolean existsByOwner_Id(Long ownerId);
+    boolean existsByContributors_Id(Long contributorId);
 }

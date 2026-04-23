@@ -1,5 +1,7 @@
 package com.nexhub.backend.security;
 
+import com.nexhub.backend.model.User;
+import com.nexhub.backend.repository.UserRepository;
 import com.nexhub.backend.utils.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,6 +18,7 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
     private final JwtUtils jwtUtils;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -26,10 +29,18 @@ public class JwtFilter extends OncePerRequestFilter {
             String token = authHeader.substring(7);
             if (jwtUtils.validateToken(token)) {
                 String email = jwtUtils.extractEmail(token);
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(email, null, null);
-                SecurityContextHolder.getContext().setAuthentication(auth);
+                userRepository.findByEmail(email)
+                        .filter(this::isActiveUser)
+                        .ifPresent(user -> {
+                            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(email, null, null);
+                            SecurityContextHolder.getContext().setAuthentication(auth);
+                        });
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isActiveUser(User user) {
+        return user.getStatus() == null || !"deactivated".equalsIgnoreCase(user.getStatus());
     }
 }

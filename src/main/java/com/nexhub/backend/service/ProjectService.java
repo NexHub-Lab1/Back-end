@@ -8,22 +8,27 @@ import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.repository.ProjectRepository;
 import com.nexhub.backend.repository.TagRepository;
+import com.nexhub.backend.repository.TaskRepository;
 import com.nexhub.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.repository.core.support.RepositoryMethodInvocationListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Date;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class ProjectService {
+    private static final Pattern GITHUB_REPOSITORY_URL_PATTERN =
+            Pattern.compile("^https://github\\.com/[^/\\s]+/[^/\\s]+/?$");
+
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final TagRepository tagRepository;
+    private final TaskRepository taskRepository;
 
     @Transactional(readOnly = true)
     public List<ProjectResponse> getAllProjects() {
@@ -110,9 +115,22 @@ public class ProjectService {
 
     public ProjectResponse deleteProject(Long id) {
         Project project = findExistingProject(id);
+
+        if (taskRepository.existsByProject_Id(project.getId())) {
+            throw new IllegalArgumentException("Project has tasks and cannot be deleted. Archive it instead.");
+        }
+
         ProjectResponse response = ProjectResponse.fromProject(project);
         projectRepository.delete(project);
         return response;
+    }
+
+    public ProjectResponse archiveProject(Long id) {
+        Project project = findExistingProject(id);
+        project.setStatus("archived");
+        project.setUpdated_at(now());
+
+        return ProjectResponse.fromProject(projectRepository.save(project));
     }
 
     private Project findExistingProject(Long id) {
@@ -144,6 +162,13 @@ public class ProjectService {
         if (githubRepo == null || githubRepo.isBlank()) {
             throw new IllegalArgumentException("Project repository is required");
         }
+        if (!isGithubRepositoryUrl(githubRepo)) {
+            throw new IllegalArgumentException("Project repository must be a valid GitHub repository URL");
+        }
+    }
+
+    private boolean isGithubRepositoryUrl(String githubRepo) {
+        return GITHUB_REPOSITORY_URL_PATTERN.matcher(githubRepo.trim()).matches();
     }
 
     private String normalizeStatus(String status) {

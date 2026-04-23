@@ -78,6 +78,17 @@ public class ProjectController {
         }
     }
 
+    @PostMapping("/archive")
+    public ResponseEntity<ApiResponse<ProjectResponse>> archive(@RequestBody Long id) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success("Archived successfully", projectService.archiveProject(id)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @PostMapping("/updateproject")
     public ResponseEntity<ApiResponse<ProjectResponse>> update(@RequestBody ProjectUpdateRequest request) {
         try {

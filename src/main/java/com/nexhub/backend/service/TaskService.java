@@ -8,7 +8,9 @@ import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.Task;
 import com.nexhub.backend.repository.ProjectRepository;
 import com.nexhub.backend.repository.TagRepository;
+import com.nexhub.backend.repository.TaskAssignmentRepository;
 import com.nexhub.backend.repository.TaskRepository;
+import com.nexhub.backend.repository.TaskSubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +29,8 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final ProjectRepository projectRepository;
     private final TagRepository tagRepository;
+    private final TaskAssignmentRepository taskAssignmentRepository;
+    private final TaskSubmissionRepository taskSubmissionRepository;
 
     @Transactional(readOnly = true)
     public List<TaskResponse> getAllTasks() {
@@ -122,9 +126,22 @@ public class TaskService {
 
     public TaskResponse deleteTask(Long id) {
         Task task = findExistingTask(id);
+
+        if (taskAssignmentRepository.existsByTask_Id(task.getId()) || taskSubmissionRepository.existsByTask_Id(task.getId())) {
+            throw new IllegalArgumentException("Task has assignments or submissions and cannot be deleted. Cancel it instead.");
+        }
+
         TaskResponse response = TaskResponse.fromTask(task);
         taskRepository.delete(task);
         return response;
+    }
+
+    public TaskResponse cancelTask(Long id) {
+        Task task = findExistingTask(id);
+        task.setStatus("cancelled");
+        task.setUpdated_at(now());
+
+        return TaskResponse.fromTask(taskRepository.save(task));
     }
 
     private Task findExistingTask(Long id) {

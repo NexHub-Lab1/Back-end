@@ -107,7 +107,7 @@ class ProjectControllerTest {
                                       "ownerId": 7,
                                       "name": "NexHub",
                                       "description": "Platform for builders",
-                                      "githubRepo": "nexhub/backend",
+                                      "githubRepo": "https://github.com/nexhub/backend",
                                       "status": "active",
                                       "tags": ["AI", "Open Source"]
                                     }
@@ -183,7 +183,7 @@ class ProjectControllerTest {
                     "manu",
                     "NexHub API",
                     "Platform for builders",
-                    "nexhub/backend",
+                    "https://github.com/nexhub/backend",
                     "active",
                     Date.valueOf("2026-04-01"),
                     Date.valueOf("2026-04-02"),
@@ -202,7 +202,7 @@ class ProjectControllerTest {
                                       "id": 1,
                                       "name": "NexHub API",
                                       "description": "Platform for builders",
-                                      "githubRepo": "nexhub/backend",
+                                      "githubRepo": "https://github.com/nexhub/backend",
                                       "status": "active",
                                       "tags": ["AI", "Open Source"]
                                     }
@@ -220,7 +220,7 @@ class ProjectControllerTest {
                 "manu",
                 "NexHub",
                 "Platform for builders",
-                "nexhub/backend",
+                "https://github.com/nexhub/backend",
                 "active",
                 Date.valueOf("2026-04-01"),
                 Date.valueOf("2026-04-01"),
