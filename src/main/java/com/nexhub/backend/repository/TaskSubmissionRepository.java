@@ -1,23 +1,37 @@
 package com.nexhub.backend.repository;
 
 import com.nexhub.backend.model.TaskSubmission;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
-import java.util.List;
 
 public interface TaskSubmissionRepository extends JpaRepository<TaskSubmission, Long> {
     boolean existsByTask_Id(Long taskId);
     boolean existsByUser_Id(Long userId);
     boolean existsByReviewer_Id(Long reviewerId);
 
-    @Query("select submission from TaskSubmission submission where submission.task.id = :taskId order by submission.submittedAt desc")
-    List<TaskSubmission> findByTaskIdOrderBySubmittedAtDesc(@Param("taskId") Long taskId);
+    @Query("select submission from TaskSubmission submission where submission.task.id = :taskId")
+    Page<TaskSubmission> findByTaskId(@Param("taskId") Long taskId, Pageable pageable);
 
-    @Query("select submission from TaskSubmission submission where submission.assignment.id = :assignmentId order by submission.submittedAt desc")
-    List<TaskSubmission> findByAssignmentIdOrderBySubmittedAtDesc(@Param("assignmentId") Long assignmentId);
+    @Query("select submission from TaskSubmission submission where submission.assignment.id = :assignmentId")
+    Page<TaskSubmission> findByAssignmentId(@Param("assignmentId") Long assignmentId, Pageable pageable);
 
-    @Query("select submission from TaskSubmission submission where submission.user.id = :userId order by submission.submittedAt desc")
-    List<TaskSubmission> findByUserIdOrderBySubmittedAtDesc(@Param("userId") Long userId);
+    @Query("select submission from TaskSubmission submission where submission.user.id = :userId")
+    Page<TaskSubmission> findByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("select submission from TaskSubmission submission where submission.task.project.owner.id = :reviewerId")
+    Page<TaskSubmission> findByProjectOwnerId(@Param("reviewerId") Long reviewerId, Pageable pageable);
+
+    @Query("""
+            select submission from TaskSubmission submission
+            where submission.task.project.owner.id = :reviewerId
+            and lower(submission.status) = lower(:status)
+            """)
+    Page<TaskSubmission> findByProjectOwnerIdAndStatus(
+            @Param("reviewerId") Long reviewerId,
+            @Param("status") String status,
+            Pageable pageable
+    );
 }

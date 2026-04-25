@@ -1,5 +1,6 @@
 package com.nexhub.backend.controller;
 
+import com.nexhub.backend.dto.PagedResponse;
 import com.nexhub.backend.dto.project.ProjectResponse;
 import com.nexhub.backend.service.ProjectService;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +11,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -33,7 +37,9 @@ class ProjectControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new ProjectController(projectService)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new ProjectController(projectService))
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .build();
     }
 
     @Nested
@@ -42,13 +48,13 @@ class ProjectControllerTest {
 
         @Test
         void returnsListOfProjects() throws Exception {
-            when(projectService.getAllProjects()).thenReturn(List.of(sampleResponse()));
+            when(projectService.getAllProjects(org.mockito.ArgumentMatchers.any())).thenReturn(singlePage(sampleResponse()));
 
             mockMvc.perform(get("/api/projects"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("success"))
-                    .andExpect(jsonPath("$.data[0].name").value("NexHub"))
-                    .andExpect(jsonPath("$.data[0].ownerUsername").value("manu"));
+                    .andExpect(jsonPath("$.data.content[0].name").value("NexHub"))
+                    .andExpect(jsonPath("$.data.content[0].ownerUsername").value("manu"));
         }
     }
 
@@ -83,12 +89,13 @@ class ProjectControllerTest {
 
         @Test
         void returnsFilteredProjects() throws Exception {
-            when(projectService.getProjectsByTag("AI")).thenReturn(List.of(sampleResponse()));
+            when(projectService.getProjectsByTag(org.mockito.ArgumentMatchers.eq("AI"), org.mockito.ArgumentMatchers.any()))
+                    .thenReturn(singlePage(sampleResponse()));
 
             mockMvc.perform(get("/api/projects/findbytag").param("tag", "AI"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("success"))
-                    .andExpect(jsonPath("$.data[0].tags[0]").value("AI"));
+                    .andExpect(jsonPath("$.data.content[0].tags[0]").value("AI"));
         }
     }
 
@@ -211,6 +218,10 @@ class ProjectControllerTest {
                     .andExpect(jsonPath("$.message").value("Updated correctly"))
                     .andExpect(jsonPath("$.data.name").value("NexHub API"));
         }
+    }
+
+    private static PagedResponse<ProjectResponse> singlePage(ProjectResponse response) {
+        return PagedResponse.fromPage(new PageImpl<>(List.of(response), PageRequest.of(0, 9), 1));
     }
 
     private static ProjectResponse sampleResponse() {

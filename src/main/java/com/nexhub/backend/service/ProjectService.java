@@ -3,6 +3,7 @@ package com.nexhub.backend.service;
 import com.nexhub.backend.dto.project.ProjectRequest;
 import com.nexhub.backend.dto.project.ProjectResponse;
 import com.nexhub.backend.dto.project.ProjectUpdateRequest;
+import com.nexhub.backend.dto.PagedResponse;
 import com.nexhub.backend.model.Project;
 import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.User;
@@ -11,11 +12,14 @@ import com.nexhub.backend.repository.TagRepository;
 import com.nexhub.backend.repository.TaskRepository;
 import com.nexhub.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Date;
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
@@ -31,10 +35,10 @@ public class ProjectService {
     private final TaskRepository taskRepository;
 
     @Transactional(readOnly = true)
-    public List<ProjectResponse> getAllProjects() {
-        return projectRepository.findAll().stream()
-                .map(ProjectResponse::fromProject)
-                .toList();
+    public PagedResponse<ProjectResponse> getAllProjects(Pageable pageable) {
+        return PagedResponse.fromPage(
+                projectRepository.findAll(pageable).map(ProjectResponse::fromProject)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -43,14 +47,15 @@ public class ProjectService {
     }
 
     @Transactional(readOnly = true)
-    public List<ProjectResponse> getProjectsByTag(String tag) {
+    public PagedResponse<ProjectResponse> getProjectsByTag(String tag, Pageable pageable) {
         if (tag == null || tag.isBlank()) {
             throw new IllegalArgumentException("Tag is required");
         }
 
-        return projectRepository.findDistinctByTags_NameIgnoreCase(tag.trim()).stream()
-                .map(ProjectResponse::fromProject)
-                .toList();
+        return PagedResponse.fromPage(
+                projectRepository.findDistinctByTags_NameIgnoreCase(tag.trim(), pageable)
+                        .map(ProjectResponse::fromProject)
+        );
     }
 
     public ProjectResponse createProject(ProjectRequest request) {
@@ -207,11 +212,14 @@ public class ProjectService {
         return new Date(System.currentTimeMillis());
     }
 
-    public List<ProjectResponse> getProjectsByOwner(Long ownerId) {
-        List<Project> projects = projectRepository.findByOwner_Id(ownerId);
-        List<ProjectResponse> projectResponses = new ArrayList<>();
-        for (Project project : projects)
-            projectResponses.add(ProjectResponse.fromProject(project));
-        return projectResponses;
+    public PagedResponse<ProjectResponse> getProjectsByOwner(Long ownerId, Pageable pageable) {
+        if (ownerId == null) {
+            throw new IllegalArgumentException("Owner id is required");
+        }
+
+        return PagedResponse.fromPage(
+                projectRepository.findByOwner_Id(ownerId, pageable)
+                        .map(ProjectResponse::fromProject)
+        );
     }
 }

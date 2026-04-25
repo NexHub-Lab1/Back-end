@@ -17,6 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.sql.Date;
 import java.util.List;
@@ -91,12 +93,13 @@ class ProjectServiceTest {
         @Test
         void returnsOnlyProjectsMatchingTag() {
             Project project = sampleProject();
-            when(projectRepository.findDistinctByTags_NameIgnoreCase("AI")).thenReturn(List.of(project));
+            when(projectRepository.findDistinctByTags_NameIgnoreCase(org.mockito.ArgumentMatchers.eq("AI"), any()))
+                    .thenReturn(new PageImpl<>(List.of(project), PageRequest.of(0, 9), 1));
 
-            List<ProjectResponse> response = projectService.getProjectsByTag("AI");
+            var response = projectService.getProjectsByTag("AI", PageRequest.of(0, 9));
 
-            assertThat(response).hasSize(1);
-            assertThat(response.get(0).name()).isEqualTo("NexHub");
+            assertThat(response.content()).hasSize(1);
+            assertThat(response.content().get(0).name()).isEqualTo("NexHub");
         }
     }
 

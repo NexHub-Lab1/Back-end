@@ -1,5 +1,6 @@
 package com.nexhub.backend.service;
 
+import com.nexhub.backend.dto.PagedResponse;
 import com.nexhub.backend.dto.task.TaskRequest;
 import com.nexhub.backend.dto.task.TaskResponse;
 import com.nexhub.backend.dto.task.TaskUpdateRequest;
@@ -12,13 +13,13 @@ import com.nexhub.backend.repository.TaskAssignmentRepository;
 import com.nexhub.backend.repository.TaskRepository;
 import com.nexhub.backend.repository.TaskSubmissionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
@@ -33,10 +34,10 @@ public class TaskService {
     private final TaskSubmissionRepository taskSubmissionRepository;
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> getAllTasks() {
-        return taskRepository.findAll().stream()
-                .map(TaskResponse::fromTask)
-                .toList();
+    public PagedResponse<TaskResponse> getAllTasks(Pageable pageable) {
+        return PagedResponse.fromPage(
+                taskRepository.findAllVisible(pageable).map(TaskResponse::fromTask)
+        );
     }
 
     @Transactional(readOnly = true)
@@ -45,14 +46,27 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public List<TaskResponse> getTasksByProject(Long projectId) {
+    public PagedResponse<TaskResponse> getTasksByProject(Long projectId, Pageable pageable) {
         if (projectId == null) {
             throw new IllegalArgumentException("Project id is required");
         }
 
-        return taskRepository.findByProjectIdOrderByCreated_atDesc(projectId).stream()
-                .map(TaskResponse::fromTask)
-                .toList();
+        return PagedResponse.fromPage(
+                taskRepository.findByProjectId(projectId, pageable)
+                        .map(TaskResponse::fromTask)
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<TaskResponse> getTasksByOwner(Long ownerId, Pageable pageable) {
+        if (ownerId == null) {
+            throw new IllegalArgumentException("Owner id is required");
+        }
+
+        return PagedResponse.fromPage(
+                taskRepository.findByProjectOwnerId(ownerId, pageable)
+                        .map(TaskResponse::fromTask)
+        );
     }
 
     public TaskResponse createTask(TaskRequest request) {
