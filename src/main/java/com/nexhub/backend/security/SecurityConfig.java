@@ -25,10 +25,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll() // Login y Signup libres
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/signup", "/api/auth/signout").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgotpassword", "/api/auth/resetpassword").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/github/start", "/api/auth/github/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/projects", "/api/projects/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tasks", "/api/tasks/**").permitAll()
-                        .anyRequest().authenticated() // Lo demás (proyectos, etc.) protegido
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

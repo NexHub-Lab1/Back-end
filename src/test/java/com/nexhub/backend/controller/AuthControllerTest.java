@@ -2,6 +2,7 @@ package com.nexhub.backend.controller;
 
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.service.AuthService;
+import com.nexhub.backend.service.GithubService;
 import com.nexhub.backend.utils.JwtUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -27,12 +29,14 @@ class AuthControllerTest {
     private AuthService authService;
     @Mock
     private JwtUtils jwt;
+    @Mock
+    private GithubService githubService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService, jwt)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService, jwt, githubService)).build();
     }
 
     @Nested
@@ -122,8 +126,10 @@ class AuthControllerTest {
                     "manuel@nexhub.dev",
                     "newsecurepass"
             )).thenReturn(updatedUser);
+            when(jwt.generateToken("manuel@nexhub.dev")).thenReturn("updated-token");
 
             mockMvc.perform(post("/api/auth/updateaccount")
+                            .principal(new TestingAuthenticationToken("manu@nexhub.dev", null))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -137,8 +143,9 @@ class AuthControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.status").value("success"))
                     .andExpect(jsonPath("$.message").value("Cuenta actualizada correctamente"))
-                    .andExpect(jsonPath("$.data.username").value("manuel"))
-                    .andExpect(jsonPath("$.data.email").value("manuel@nexhub.dev"));
+                    .andExpect(jsonPath("$.data.user.username").value("manuel"))
+                    .andExpect(jsonPath("$.data.user.email").value("manuel@nexhub.dev"))
+                    .andExpect(jsonPath("$.data.token").value("updated-token"));
         }
     }
 
