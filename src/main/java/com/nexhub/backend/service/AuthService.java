@@ -107,6 +107,10 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
+        if (isGithubUser(user)) {
+            throw new IllegalArgumentException("Las cuentas vinculadas con GitHub no pueden cambiar password");
+        }
+
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setUpdated_at(new Date(System.currentTimeMillis()));
 
@@ -136,15 +140,23 @@ public class AuthService {
         return "Cuenta eliminada correctamente";
     }
 
-    public User updateAccount(String currentEmail, String currentPassword, String newUsername, String newEmail, String newPassword) {
-        validateEmail(currentEmail);
-        validatePassword(currentPassword);
+    public User updateAccount(String authenticatedEmail, String currentPassword, String newUsername, String newEmail, String newPassword) {
+        validateEmail(authenticatedEmail);
 
-        User user = userRepository.findByEmail(currentEmail)
+        User user = userRepository.findByEmail(authenticatedEmail)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-            throw new IllegalArgumentException("Password incorrecta");
+        boolean githubUser = isGithubUser(user);
+
+        if (githubUser) {
+            if (newPassword != null && !newPassword.isBlank()) {
+                throw new IllegalArgumentException("Las cuentas vinculadas con GitHub no pueden cambiar password");
+            }
+        } else {
+            validatePassword(currentPassword);
+            if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+                throw new IllegalArgumentException("Password incorrecta");
+            }
         }
 
         if (newUsername != null && !newUsername.isBlank() && !newUsername.equals(user.getUsername())) {
@@ -162,7 +174,7 @@ public class AuthService {
             user.setEmail(newEmail.trim());
         }
 
-        if (newPassword != null && !newPassword.isBlank()) {
+        if (!githubUser && newPassword != null && !newPassword.isBlank()) {
             validatePassword(newPassword);
             user.setPassword(passwordEncoder.encode(newPassword));
         }
@@ -207,5 +219,10 @@ public class AuthService {
 
     private boolean isDeactivated(User user) {
         return user.getStatus() != null && DEACTIVATED_STATUS.equalsIgnoreCase(user.getStatus());
+    }
+
+    private boolean isGithubUser(User user) {
+        return user.getGithub_id() != null
+                || (user.getGithub_username() != null && !user.getGithub_username().isBlank());
     }
 }
