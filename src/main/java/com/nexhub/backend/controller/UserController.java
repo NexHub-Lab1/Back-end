@@ -4,6 +4,7 @@ package com.nexhub.backend.controller;
 import com.nexhub.backend.dto.ApiResponse;
 import com.nexhub.backend.dto.UserDetailsResponse;
 import com.nexhub.backend.dto.auth.AuthUserResponse;
+import com.nexhub.backend.dto.follow.FollowRequest;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -55,6 +57,55 @@ public class UserController {
                     "success",
                     "top users (all users)",
                     users
+            );
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/follow")
+    public ApiResponse<UserDetailsResponse> follow(@RequestBody FollowRequest request) {
+        try {
+            final User current = service.getUserById(request.from());
+            final User to_follow = service.getUserById(request.to());
+            current.getFollows().add(to_follow);
+            return new ApiResponse<>(
+                    "success",
+                    current.getId() + " follow " + to_follow.getId(),
+                   UserDetailsResponse.fromUser(to_follow)
+            );
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/unfollow")
+    public ApiResponse<UserDetailsResponse> unfollow(@RequestBody FollowRequest request) {
+        try {
+            final User current = service.getUserById(request.from());
+            final User to_unfollow = service.getUserById(request.to());
+            current.getFollows().remove(to_unfollow);
+            return new ApiResponse<>(
+                    "success",
+                    current.getId() + " follow " + to_unfollow.getId(),
+                    UserDetailsResponse.fromUser(to_unfollow)
+            );
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/followed/{id}")
+    public ApiResponse<List<UserDetailsResponse>> getFollowedUsers(@PathVariable Long id) {
+        try {
+            final User current = service.getUserById(id);
+            final List<UserDetailsResponse> response = current.getFollows()
+                    .stream().map(UserDetailsResponse::fromUser)
+                    .toList();
+            return new ApiResponse<>(
+                    "success",
+                    "Users followed by " + current.getId(),
+                    response
             );
         } catch (Exception e) {
             return ApiResponse.error(e.getMessage());

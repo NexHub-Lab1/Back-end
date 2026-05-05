@@ -10,6 +10,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.sql.Date;
+import java.util.ArrayList;
+import java.util.HashSet;
 
 @Service
 public class AuthService {
@@ -67,6 +69,7 @@ public class AuthService {
         user.setTotal_points(0);
         user.setStreak_day(0);
         user.setReputation_score(0);
+        user.setFollows(new HashSet<>());
 
         return userRepository.save(user);
     }
