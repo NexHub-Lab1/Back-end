@@ -72,9 +72,13 @@ public class GithubService {
         String accessToken = exchangeCodeForAccessToken(code);
         GithubUserProfile githubUser = fetchGithubUser(accessToken);
         String email = fetchPrimaryEmail(accessToken, githubUser);
-        User user = loginOrCreateGithubUser(githubUser, email);
+        GithubUserLogin githubUserLogin = loginOrCreateGithubUser(githubUser, email);
 
-        return new GithubLoginResult(user, jwtUtils.generateToken(user.getEmail()));
+        return new GithubLoginResult(
+                githubUserLogin.user(),
+                jwtUtils.generateToken(githubUserLogin.user().getEmail()),
+                githubUserLogin.firstGithubLogin()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -207,13 +211,14 @@ public class GithubService {
         }
     }
 
-    private User loginOrCreateGithubUser(GithubUserProfile githubUser, String email) {
+    private GithubUserLogin loginOrCreateGithubUser(GithubUserProfile githubUser, String email) {
         if (githubUser.id() == null || githubUser.login() == null || githubUser.login().isBlank()) {
             throw new IllegalArgumentException("Incomplete GitHub user profile");
         }
 
         User user = userRepository.findByGithubId(githubUser.id())
                 .orElseGet(() -> userRepository.findByEmail(email).orElseGet(User::new));
+        boolean firstGithubLogin = user.getGithub_id() == null;
 
         if (user.getId() == null) {
             user.setUsername(resolveUniqueUsername(githubUser.login()));
@@ -238,7 +243,7 @@ public class GithubService {
             user.setEmail(resolveUniqueEmail(email));
         }
 
-        return userRepository.save(user);
+        return new GithubUserLogin(userRepository.save(user), firstGithubLogin);
     }
 
     private String resolveUniqueUsername(String baseUsername) {
@@ -333,7 +338,9 @@ public class GithubService {
         return Boolean.parseBoolean(asString(value));
     }
 
-    public record GithubLoginResult(User user, String token) {}
+    public record GithubLoginResult(User user, String token, boolean firstGithubLogin) {}
+
+    private record GithubUserLogin(User user, boolean firstGithubLogin) {}
 
     private record GithubUserProfile(
             Integer id,

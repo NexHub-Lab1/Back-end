@@ -156,7 +156,8 @@ public class AuthController {
                     + "&email=" + encode(authUser.email())
                     + "&githubId=" + authUser.githubId()
                     + "&githubUsername=" + encode(nullSafe(authUser.githubUsername()))
-                    + "&profileImageUrl=" + encode(nullSafe(authUser.profileImageUrl()));
+                    + "&profileImageUrl=" + encode(nullSafe(authUser.profileImageUrl()))
+                    + "&firstGithubLogin=" + result.firstGithubLogin();
 
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header("Location", redirectUrl)
