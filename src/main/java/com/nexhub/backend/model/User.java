@@ -1,15 +1,13 @@
 package com.nexhub.backend.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.sql.Date;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -74,6 +72,16 @@ public class User {
     @Getter
     @Setter
     private Date last_active_at;
+
+    @Getter
+    @Setter
+    @OneToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "followed_id",
+            joinColumns = @JoinColumn(name = "from_id"),
+            inverseJoinColumns = @JoinColumn(name = "to_id")
+    )
+    private Set<User> follows;
 
     @PrePersist
     void prePersist() {
