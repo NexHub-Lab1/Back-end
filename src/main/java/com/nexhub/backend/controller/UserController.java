@@ -69,6 +69,7 @@ public class UserController {
             final User current = service.getUserById(request.from());
             final User to_follow = service.getUserById(request.to());
             current.getFollows().add(to_follow);
+            service.saveUser(current);
             return new ApiResponse<>(
                     "success",
                     current.getId() + " follow " + to_follow.getId(),
@@ -85,6 +86,7 @@ public class UserController {
             final User current = service.getUserById(request.from());
             final User to_unfollow = service.getUserById(request.to());
             current.getFollows().remove(to_unfollow);
+            service.saveUser(current);
             return new ApiResponse<>(
                     "success",
                     current.getId() + " follow " + to_unfollow.getId(),
