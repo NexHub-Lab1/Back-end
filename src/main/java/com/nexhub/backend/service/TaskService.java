@@ -32,6 +32,7 @@ public class TaskService {
     private final TagRepository tagRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskSubmissionRepository taskSubmissionRepository;
+    private final PaymentService paymentService;
 
     @Transactional(readOnly = true)
     public PagedResponse<TaskResponse> getAllTasks(Pageable pageable) {
@@ -98,6 +99,7 @@ public class TaskService {
         }
 
         Task task = findExistingTask(request.id());
+        validateFundingLockedFields(task, request);
 
         if (request.projectId() != null) {
             Project project = projectRepository.findById(request.projectId())
@@ -152,6 +154,7 @@ public class TaskService {
 
     public TaskResponse cancelTask(Long id) {
         Task task = findExistingTask(id);
+        paymentService.refundTaskEscrow(task, "Task cancelled");
         task.setStatus("cancelled");
         task.setUpdated_at(now());
 
@@ -175,6 +178,16 @@ public class TaskService {
             throw new IllegalArgumentException("Project id is required");
         }
         validateTaskFields(request.title(), request.description(), request.rewardAmount());
+    }
+
+    private void validateFundingLockedFields(Task task, TaskUpdateRequest request) {
+        if (!paymentService.taskHasLockedFunding(task)) {
+            return;
+        }
+
+        if (request.projectId() != null || request.rewardAmount() != null || request.rewardCurrency() != null) {
+            throw new IllegalArgumentException("Task project and reward cannot be changed after funding starts");
+        }
     }
 
     private void validateTaskFields(String title, String description, BigDecimal rewardAmount) {

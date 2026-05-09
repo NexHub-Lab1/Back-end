@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,6 +64,16 @@ public class User {
 
     @Getter
     @Setter
+    @Column(precision = 12, scale = 2)
+    private BigDecimal availableBalance;
+
+    @Getter
+    @Setter
+    @Column(precision = 12, scale = 2)
+    private BigDecimal escrowBalance;
+
+    @Getter
+    @Setter
     private Date created_at;
 
     @Getter
@@ -98,10 +109,22 @@ public class User {
         if (status == null || status.isBlank()) {
             status = "active";
         }
+        if (availableBalance == null) {
+            availableBalance = BigDecimal.ZERO;
+        }
+        if (escrowBalance == null) {
+            escrowBalance = BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
     void preUpdate() {
         updated_at = new Date(System.currentTimeMillis());
+        if (availableBalance == null) {
+            availableBalance = BigDecimal.ZERO;
+        }
+        if (escrowBalance == null) {
+            escrowBalance = BigDecimal.ZERO;
+        }
     }
 }

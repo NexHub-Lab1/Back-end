@@ -72,6 +72,11 @@ public class Task {
 
     @Getter
     @Setter
+    @Column
+    private String fundingStatus;
+
+    @Getter
+    @Setter
     @Column(nullable = false)
     private Integer maxAttempts;
 
@@ -106,6 +111,9 @@ public class Task {
         }
         if (status == null || status.isBlank()) {
             status = "open";
+        }
+        if (fundingStatus == null || fundingStatus.isBlank()) {
+            fundingStatus = "unfunded";
         }
         if (rewardCurrency == null || rewardCurrency.isBlank()) {
             rewardCurrency = "USD";

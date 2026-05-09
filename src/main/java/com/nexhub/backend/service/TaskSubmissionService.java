@@ -43,6 +43,7 @@ public class TaskSubmissionService {
     private final TaskSubmissionRepository taskSubmissionRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final UserRepository userRepository;
+    private final PaymentService paymentService;
 
     @Transactional(readOnly = true)
     public PagedResponse<TaskSubmissionResponse> getAllSubmissions(Pageable pageable) {
@@ -156,6 +157,7 @@ public class TaskSubmissionService {
 
         if (request.status() != null && !request.status().isBlank()) {
             String status = normalizeStatus(request.status());
+            validateApprovedSubmissionCannotBeReopened(previousStatus, status);
             submission.setStatus(status);
 
             if (SUBMITTED_STATUS.equals(status)) {
@@ -168,6 +170,9 @@ public class TaskSubmissionService {
                 submission.setReviewer(reviewer);
                 submission.setReviewedAt(now());
                 syncAssignmentStatusAfterStatusChange(submission, previousStatus, status);
+                if (APPROVED_STATUS.equals(status) && !APPROVED_STATUS.equalsIgnoreCase(previousStatus)) {
+                    paymentService.releaseRewardForApprovedSubmission(submission);
+                }
             }
         }
 
@@ -276,6 +281,12 @@ public class TaskSubmissionService {
         return APPROVED_STATUS.equals(status)
                 || REJECTED_STATUS.equals(status)
                 || CHANGES_REQUESTED_STATUS.equals(status);
+    }
+
+    private void validateApprovedSubmissionCannotBeReopened(String previousStatus, String status) {
+        if (APPROVED_STATUS.equalsIgnoreCase(previousStatus) && !APPROVED_STATUS.equals(status)) {
+            throw new IllegalArgumentException("Approved submissions cannot be changed because the reward has already been released");
+        }
     }
 
     private String normalizeStatus(String status) {
