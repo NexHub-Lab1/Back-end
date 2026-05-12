@@ -1,7 +1,9 @@
 package com.nexhub.backend.service;
 
+import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.repository.ProjectRepository;
+import com.nexhub.backend.repository.TagRepository;
 import com.nexhub.backend.repository.TaskAssignmentRepository;
 import com.nexhub.backend.repository.TaskSubmissionRepository;
 import com.nexhub.backend.repository.UserRepository;
@@ -17,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.sql.Date;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,6 +45,9 @@ class AuthServiceTest {
 
     @Mock
     private TaskSubmissionRepository taskSubmissionRepository;
+
+    @Mock
+    private TagRepository tagRepository;
 
     @InjectMocks
     private AuthService authService;
@@ -173,13 +179,42 @@ class AuthServiceTest {
                     "securepass",
                     "manuel",
                     "manuel@nexhub.dev",
-                    "newsecurepass"
+                    "newsecurepass",
+                    null
             );
 
             assertThat(updatedUser.getUsername()).isEqualTo("manuel");
             assertThat(updatedUser.getEmail()).isEqualTo("manuel@nexhub.dev");
             assertThat(updatedUser.getPassword()).isEqualTo("new-hash");
             assertThat(updatedUser.getUpdated_at()).isAfterOrEqualTo(Date.valueOf("2026-03-01"));
+            verify(userRepository).save(existingUser);
+        }
+
+        @Test
+        void updatesUserSkillsUsingExistingAndNewTags() {
+            User existingUser = userWithCredentials("manu", "manu@nexhub.dev", "hashed-password");
+            Tag existingTag = new Tag();
+            existingTag.setName("React");
+
+            when(userRepository.findByEmail("manu@nexhub.dev")).thenReturn(Optional.of(existingUser));
+            when(passwordEncoder.matches("securepass", "hashed-password")).thenReturn(true);
+            when(tagRepository.findByNameIgnoreCase("React")).thenReturn(Optional.of(existingTag));
+            when(tagRepository.findByNameIgnoreCase("TypeScript")).thenReturn(Optional.empty());
+            when(tagRepository.save(any(Tag.class))).thenAnswer(invocation -> invocation.getArgument(0));
+            when(userRepository.save(existingUser)).thenReturn(existingUser);
+
+            User updatedUser = authService.updateAccount(
+                    "manu@nexhub.dev",
+                    "securepass",
+                    "manu",
+                    "manu@nexhub.dev",
+                    "",
+                    Set.of("React", "TypeScript")
+            );
+
+            assertThat(updatedUser.getSkills())
+                    .extracting(Tag::getName)
+                    .containsExactlyInAnyOrder("React", "TypeScript");
             verify(userRepository).save(existingUser);
         }
     }

@@ -122,7 +122,8 @@ public class AuthController {
                     request.currentPassword(),
                     request.newUsername(),
                     request.newEmail(),
-                    request.newPassword()
+                    request.newPassword(),
+                    request.skills()
             );
 
             Map<String, Object> data = new HashMap<>();

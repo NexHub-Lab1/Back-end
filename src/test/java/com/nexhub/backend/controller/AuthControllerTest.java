@@ -124,7 +124,8 @@ class AuthControllerTest {
                     "securepass",
                     "manuel",
                     "manuel@nexhub.dev",
-                    "newsecurepass"
+                    "newsecurepass",
+                    null
             )).thenReturn(updatedUser);
             when(jwt.generateToken("manuel@nexhub.dev")).thenReturn("updated-token");
 

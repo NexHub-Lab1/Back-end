@@ -3,12 +3,14 @@ package com.nexhub.backend.dto;
 import com.nexhub.backend.model.User;
 
 import java.sql.Date;
+import java.util.List;
 
 public record UserDetailsResponse(
         Long id,
         String username,
         String email,
         String bio,
+        List<String> skills,
         Integer streakDay,
         String image_url,
         Date last_active_at,
@@ -20,6 +22,12 @@ public record UserDetailsResponse(
                 user.getUsername(),
                 user.getEmail(),
                 user.getBio(),
+                user.getSkills() == null
+                        ? List.of()
+                        : user.getSkills().stream()
+                        .map(tag -> tag.getName())
+                        .sorted(String::compareToIgnoreCase)
+                        .toList(),
                 user.getStreak_day(),
                 user.getProfile_image_url(),
                 user.getLast_active_at(),

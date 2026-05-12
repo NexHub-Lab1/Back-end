@@ -34,4 +34,8 @@ public class Tag {
     @ManyToMany(mappedBy = "recommendedSkills")
     @JsonIgnore
     private Set<Task> tasks = new HashSet<>();
+
+    @ManyToMany(mappedBy = "skills")
+    @JsonIgnore
+    private Set<User> users = new HashSet<>();
 }
