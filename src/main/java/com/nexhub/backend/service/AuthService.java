@@ -1,7 +1,9 @@
 package com.nexhub.backend.service;
 
+import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.repository.ProjectRepository;
+import com.nexhub.backend.repository.TagRepository;
 import com.nexhub.backend.repository.TaskAssignmentRepository;
 import com.nexhub.backend.repository.TaskSubmissionRepository;
 import com.nexhub.backend.repository.UserRepository;
@@ -10,8 +12,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.sql.Date;
-import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Service
 public class AuthService {
@@ -23,19 +26,22 @@ public class AuthService {
     private final ProjectRepository projectRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskSubmissionRepository taskSubmissionRepository;
+    private final TagRepository tagRepository;
 
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             ProjectRepository projectRepository,
             TaskAssignmentRepository taskAssignmentRepository,
-            TaskSubmissionRepository taskSubmissionRepository
+            TaskSubmissionRepository taskSubmissionRepository,
+            TagRepository tagRepository
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.projectRepository = projectRepository;
         this.taskAssignmentRepository = taskAssignmentRepository;
         this.taskSubmissionRepository = taskSubmissionRepository;
+        this.tagRepository = tagRepository;
     }
 
     public User signup(String username, String email, String password) {
@@ -70,6 +76,7 @@ public class AuthService {
         user.setStreak_day(0);
         user.setReputation_score(0);
         user.setFollows(new HashSet<>());
+        user.setSkills(new HashSet<>());
 
         return userRepository.save(user);
     }
@@ -143,7 +150,14 @@ public class AuthService {
         return "Cuenta eliminada correctamente";
     }
 
-    public User updateAccount(String authenticatedEmail, String currentPassword, String newUsername, String newEmail, String newPassword) {
+    public User updateAccount(
+            String authenticatedEmail,
+            String currentPassword,
+            String newUsername,
+            String newEmail,
+            String newPassword,
+            Set<String> skills
+    ) {
         validateEmail(authenticatedEmail);
 
         User user = userRepository.findByEmail(authenticatedEmail)
@@ -180,6 +194,10 @@ public class AuthService {
         if (!githubUser && newPassword != null && !newPassword.isBlank()) {
             validatePassword(newPassword);
             user.setPassword(passwordEncoder.encode(newPassword));
+        }
+
+        if (skills != null) {
+            user.setSkills(resolveTags(skills));
         }
 
         if (!UserChecker.usernameCheck(user) || !UserChecker.emailCheck(user)) {
@@ -227,5 +245,33 @@ public class AuthService {
     private boolean isGithubUser(User user) {
         return user.getGithub_id() != null
                 || (user.getGithub_username() != null && !user.getGithub_username().isBlank());
+    }
+
+    private Set<Tag> resolveTags(Set<String> rawTags) {
+        if (rawTags == null || rawTags.isEmpty()) {
+            return new LinkedHashSet<>();
+        }
+
+        Set<Tag> resolvedTags = new LinkedHashSet<>();
+        for (String rawTag : rawTags) {
+            if (rawTag == null) {
+                continue;
+            }
+
+            String normalizedTag = rawTag.trim();
+            if (normalizedTag.isEmpty()) {
+                continue;
+            }
+
+            Tag tag = tagRepository.findByNameIgnoreCase(normalizedTag)
+                    .orElseGet(() -> {
+                        Tag newTag = new Tag();
+                        newTag.setName(normalizedTag);
+                        return tagRepository.save(newTag);
+                    });
+            resolvedTags.add(tag);
+        }
+
+        return resolvedTags;
     }
 }
