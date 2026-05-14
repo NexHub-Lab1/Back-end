@@ -15,6 +15,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import org.hibernate.annotations.BatchSize;
 import java.sql.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -71,7 +72,8 @@ public class Project {
 
     @Getter
     @Setter
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
+    @BatchSize(size = 20)
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
     @JoinTable(
             name = "project_tags",
             joinColumns = @JoinColumn(name = "project_id"),
@@ -81,7 +83,8 @@ public class Project {
 
     @Getter
     @Setter
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
+    @BatchSize(size = 20)
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
     @JoinTable(
             name = "devs_project",
             joinColumns = @JoinColumn(name = "project_id"),

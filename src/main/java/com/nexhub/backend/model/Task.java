@@ -17,6 +17,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import org.hibernate.annotations.BatchSize;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.util.HashSet;
@@ -87,7 +88,8 @@ public class Task {
 
     @Getter
     @Setter
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
+    @BatchSize(size = 20)
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
     @JoinTable(
             name = "task_skills",
             joinColumns = @JoinColumn(name = "task_id"),
