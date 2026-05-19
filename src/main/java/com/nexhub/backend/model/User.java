@@ -85,7 +85,7 @@ public class User {
 
     @Getter
     @Setter
-    @OneToMany(fetch = FetchType.EAGER)
+    @OneToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "followed_id",
             joinColumns = @JoinColumn(name = "from_id"),
