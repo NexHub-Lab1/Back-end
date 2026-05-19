@@ -43,6 +43,7 @@ public class TaskSubmissionService {
     private final TaskSubmissionRepository taskSubmissionRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public PagedResponse<TaskSubmissionResponse> getAllSubmissions(Pageable pageable) {
@@ -134,7 +135,16 @@ public class TaskSubmissionService {
         assignment.setAttemptsUsed(nextAttempt);
         taskAssignmentRepository.save(assignment);
 
-        return TaskSubmissionResponse.fromTaskSubmission(taskSubmissionRepository.save(submission));
+        TaskSubmission savedSubmission = taskSubmissionRepository.save(submission);
+
+        User projectOwner = task.getProject().getOwner();
+        notificationService.sendNotification(
+                projectOwner,
+                "New submission from " + submission.getUser().getUsername() + " for task: " + task.getTitle(),
+                "INFO"
+        );
+
+        return TaskSubmissionResponse.fromTaskSubmission(savedSubmission);
     }
 
     public TaskSubmissionResponse updateSubmission(TaskSubmissionUpdateRequest request) {
@@ -168,6 +178,13 @@ public class TaskSubmissionService {
                 submission.setReviewer(reviewer);
                 submission.setReviewedAt(now());
                 syncAssignmentStatusAfterStatusChange(submission, previousStatus, status);
+
+                String type = "INFO";
+                String message = "Your submission for '" + submission.getTask().getTitle() + "' has been " + status;
+                if (APPROVED_STATUS.equals(status)) type = "SUCCESS";
+                if (REJECTED_STATUS.equals(status)) type = "WARNING";
+
+                notificationService.sendNotification(submission.getUser(), message, type);
             }
         }
 

@@ -1,0 +1,50 @@
+package com.nexhub.backend.service;
+
+import com.nexhub.backend.model.Notification;
+import com.nexhub.backend.model.User;
+import com.nexhub.backend.repository.NotificationRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class NotificationService {
+    private final NotificationRepository notificationRepository;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    @Transactional
+    public void sendNotification(User user, String message, String type) {
+        Notification notification = new Notification();
+        notification.setUser(user);
+        notification.setMessage(message);
+        notification.setType(type);
+        notification.setRead(false);
+
+        Notification savedNotification = notificationRepository.save(notification);
+
+        // Send real-time notification via WebSocket
+        // Destination: /user/{email}/queue/notifications
+        // We use email as the principal name from the AuthChannelInterceptor
+        messagingTemplate.convertAndSendToUser(
+                user.getEmail(),
+                "/queue/notifications",
+                savedNotification
+        );
+    }
+
+    public List<Notification> getNotificationsForUser(User user) {
+        return notificationRepository.findByUserOrderByCreatedAtDesc(user);
+    }
+
+    @Transactional
+    public void markAsRead(Long notificationId) {
+        notificationRepository.findById(notificationId).ifPresent(notification -> {
+            notification.setRead(true);
+            notificationRepository.save(notification);
+        });
+    }
+}
