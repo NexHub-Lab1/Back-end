@@ -22,6 +22,8 @@ public class ChatMessageService {
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final NotificationService notificationService;
+
 
     @Transactional(readOnly = true)
     public List<ChatMessageResponse> getChatHistory(Long assignmentId) {
@@ -55,6 +57,13 @@ public class ChatMessageService {
         
         // Push in real-time to WebSocket subscribers of this assignment
         messagingTemplate.convertAndSend("/topic/chat/" + assignmentId, response);
+
+        // Send real-time notification to the recipient (the counterparty of the conversation)
+        User recipient = isAssignee ? assignment.getTask().getProject().getOwner() : assignment.getUser();
+        String trimmedMsg = content.trim();
+        String preview = trimmedMsg.length() > 50 ? trimmedMsg.substring(0, 47) + "..." : trimmedMsg;
+        String notificationMsg = sender.getUsername() + " sent you a message on '" + assignment.getTask().getTitle() + "': " + preview;
+        notificationService.sendNotification(recipient, notificationMsg, "INFO");
 
         return response;
     }
