@@ -28,6 +28,7 @@ public class TaskAssignmentService {
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public PagedResponse<TaskAssignmentResponse> getAllAssignments(Pageable pageable) {
@@ -90,7 +91,15 @@ public class TaskAssignmentService {
         assignment.setStatus(ACTIVE_STATUS);
         assignment.setAttemptsUsed(0);
 
-        return TaskAssignmentResponse.fromTaskAssignment(taskAssignmentRepository.save(assignment));
+        TaskAssignment savedAssignment = taskAssignmentRepository.save(assignment);
+
+        notificationService.sendNotification(
+                user,
+                "You have been assigned to the task: " + task.getTitle(),
+                "INFO"
+        );
+
+        return TaskAssignmentResponse.fromTaskAssignment(savedAssignment);
     }
 
     public TaskAssignmentResponse updateAssignment(TaskAssignmentUpdateRequest request) {

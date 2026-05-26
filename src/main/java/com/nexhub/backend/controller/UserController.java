@@ -6,6 +6,7 @@ import com.nexhub.backend.dto.UserDetailsResponse;
 import com.nexhub.backend.dto.auth.AuthUserResponse;
 import com.nexhub.backend.dto.follow.FollowRequest;
 import com.nexhub.backend.model.User;
+import com.nexhub.backend.service.NotificationService;
 import com.nexhub.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,9 @@ import java.util.stream.Collectors;
 public class UserController {
     @Autowired
     private UserService service;
+
+    @Autowired
+    private NotificationService notificationService;
 
     //esto es despues de nexhub.com ....
     @PostMapping("/{id}")
@@ -70,6 +74,13 @@ public class UserController {
             final User to_follow = service.getUserById(request.to());
             current.getFollows().add(to_follow);
             service.saveUser(current);
+
+            notificationService.sendNotification(
+                    to_follow,
+                    current.getUsername() + " started following you!",
+                    "INFO"
+            );
+
             return new ApiResponse<>(
                     "success",
                     current.getId() + " follow " + to_follow.getId(),
