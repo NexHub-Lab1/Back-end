@@ -96,7 +96,8 @@ public class TaskAssignmentService {
         notificationService.sendNotification(
                 user,
                 "You have been assigned to the task: " + task.getTitle(),
-                "INFO"
+                "INFO",
+                "/task/" + task.getId()
         );
 
         return TaskAssignmentResponse.fromTaskAssignment(savedAssignment);

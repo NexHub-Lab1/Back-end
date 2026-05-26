@@ -78,7 +78,8 @@ public class UserController {
             notificationService.sendNotification(
                     to_follow,
                     current.getUsername() + " started following you!",
-                    "INFO"
+                    "INFO",
+                    "/user/" + current.getId()
             );
 
             return new ApiResponse<>(
@@ -118,6 +119,22 @@ public class UserController {
             return new ApiResponse<>(
                     "success",
                     "Users followed by " + current.getId(),
+                    response
+            );
+        } catch (Exception e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/followers/{id}")
+    public ApiResponse<List<UserDetailsResponse>> getFollowers(@PathVariable Long id) {
+        try {
+            final List<UserDetailsResponse> response = service.getFollowers(id)
+                    .stream().map(UserDetailsResponse::fromUser)
+                    .toList();
+            return new ApiResponse<>(
+                    "success",
+                    "Users following " + id,
                     response
             );
         } catch (Exception e) {

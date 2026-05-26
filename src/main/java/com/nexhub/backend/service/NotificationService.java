@@ -18,10 +18,16 @@ public class NotificationService {
 
     @Transactional
     public void sendNotification(User user, String message, String type) {
+        sendNotification(user, message, type, null);
+    }
+
+    @Transactional
+    public void sendNotification(User user, String message, String type, String targetPath) {
         Notification notification = new Notification();
         notification.setUser(user);
         notification.setMessage(message);
         notification.setType(type);
+        notification.setTargetPath(targetPath);
         notification.setRead(false);
 
         Notification savedNotification = notificationRepository.save(notification);

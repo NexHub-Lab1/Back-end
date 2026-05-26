@@ -131,6 +131,21 @@ class AuthServiceTest {
         }
 
         @Test
+        void logsInUsingUsernameWhenCredentialsAreValid() {
+            User existingUser = userWithCredentials("manu", "manu@nexhub.dev", "hashed-password");
+
+            when(userRepository.findByEmail("manu")).thenReturn(Optional.empty());
+            when(userRepository.findByUsername("manu")).thenReturn(Optional.of(existingUser));
+            when(passwordEncoder.matches("securepass", "hashed-password")).thenReturn(true);
+            when(userRepository.save(existingUser)).thenReturn(existingUser);
+
+            User loggedInUser = authService.login("manu", "securepass");
+
+            assertThat(loggedInUser).isSameAs(existingUser);
+            verify(userRepository).save(existingUser);
+        }
+
+        @Test
         void rejectsWrongPassword() {
             User existingUser = userWithCredentials("manu", "manu@nexhub.dev", "hashed-password");
             when(userRepository.findByEmail("manu@nexhub.dev")).thenReturn(Optional.of(existingUser));

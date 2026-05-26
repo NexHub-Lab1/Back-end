@@ -1,6 +1,7 @@
 package com.nexhub.backend.model;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.Column;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -33,6 +34,11 @@ public class Notification {
     @Getter
     @Setter
     private String type; // e.g., INFO, SUCCESS, WARNING
+
+    @Getter
+    @Setter
+    @Column(name = "target_path", length = 500)
+    private String targetPath;
 
     @Getter
     @Setter

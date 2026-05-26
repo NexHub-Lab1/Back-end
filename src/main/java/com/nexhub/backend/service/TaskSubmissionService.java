@@ -141,7 +141,8 @@ public class TaskSubmissionService {
         notificationService.sendNotification(
                 projectOwner,
                 "New submission from " + submission.getUser().getUsername() + " for task: " + task.getTitle(),
-                "INFO"
+                "INFO",
+                "/task/" + task.getId()
         );
 
         return TaskSubmissionResponse.fromTaskSubmission(savedSubmission);
@@ -184,7 +185,12 @@ public class TaskSubmissionService {
                 if (APPROVED_STATUS.equals(status)) type = "SUCCESS";
                 if (REJECTED_STATUS.equals(status)) type = "WARNING";
 
-                notificationService.sendNotification(submission.getUser(), message, type);
+                notificationService.sendNotification(
+                        submission.getUser(),
+                        message,
+                        type,
+                        "/task/" + submission.getTask().getId()
+                );
             }
         }
 

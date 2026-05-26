@@ -81,8 +81,14 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-    public User login(String email, String password) {
-        User user = userRepository.findByEmail(email)
+    public User login(String emailOrUsername, String password) {
+        if (emailOrUsername == null || emailOrUsername.isBlank()) {
+            throw new IllegalArgumentException("El email o username es obligatorio");
+        }
+
+        String identifier = emailOrUsername.trim();
+        User user = userRepository.findByEmail(identifier)
+                .or(() -> userRepository.findByUsername(identifier))
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
         if (isDeactivated(user)) {

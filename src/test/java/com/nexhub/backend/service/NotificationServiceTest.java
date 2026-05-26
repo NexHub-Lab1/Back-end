@@ -55,4 +55,18 @@ class NotificationServiceTest {
                 any(Notification.class)
         );
     }
+
+    @Test
+    void sendNotificationIncludesNavigationTargetWhenProvided() {
+        User user = new User();
+        user.setEmail("test@example.com");
+
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(i -> i.getArgument(0));
+
+        notificationService.sendNotification(user, "Task assigned", "INFO", "/task/42");
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+        assertThat(captor.getValue().getTargetPath()).isEqualTo("/task/42");
+    }
 }

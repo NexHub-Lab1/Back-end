@@ -90,6 +90,22 @@ class AuthControllerTest {
         }
 
         @Test
+        void returnsOkWhenUsernameIsUsedAsLoginIdentifier() throws Exception {
+            when(authService.login("manu", "securepass")).thenReturn(sampleUser());
+
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "email": "manu",
+                                      "password": "securepass"
+                                    }
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.user.username").value("manu"));
+        }
+
+        @Test
         void returnsUnauthorizedWhenCredentialsAreInvalid() throws Exception {
             when(authService.login("manu@nexhub.dev", "wrongpass"))
                     .thenThrow(new IllegalArgumentException("Password incorrecta"));

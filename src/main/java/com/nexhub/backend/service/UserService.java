@@ -27,6 +27,11 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado por email: " + email));
     }
 
+    public List<User> getFollowers(Long userId) {
+        getUserById(userId);
+        return userRepository.findFollowersByUserId(userId);
+    }
+
     public User addPoints(Long userId, Integer points) {
         User user = getUserById(userId);
         user.setTotal_points(user.getTotal_points() + points);
