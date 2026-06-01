@@ -52,6 +52,22 @@ Si desea ejecutar la aplicacion sin Docker para tareas de depuracion:
 
    ./gradlew bootRun
 
+## Integracion de Mercado Pago
+
+El fondeo de tareas utiliza Checkout Pro en modo de prueba. El owner es redirigido a la interfaz de Mercado Pago, paga con una tarjeta de prueba y la aplicacion actualiza el escrow cuando recibe un webhook valido.
+
+Variables de entorno requeridas para probar el flujo:
+
+   FRONTEND_URL=http://localhost:5173
+   MERCADOPAGO_ACCESS_TOKEN=TEST-tu-access-token
+   MERCADOPAGO_WEBHOOK_URL=https://tu-url-publica/api/payments/webhooks/mercadopago
+   MERCADOPAGO_WEBHOOK_SECRET=tu-clave-secreta-del-webhook
+   MERCADOPAGO_USE_SANDBOX=true
+
+La URL del webhook debe ser HTTPS y accesible desde Internet; Mercado Pago no puede notificar directamente a `localhost`. Durante desarrollo puede utilizarse un tunel HTTPS hacia el puerto del backend. No se deben commitear tokens ni secrets.
+
+Las rewards financiables se expresan en ARS, ya que la integracion de prueba corresponde a Mercado Pago Argentina. El saldo de la wallet es interno a NexHub; no implementa retiros hacia la cuenta del developer.
+
 ## Detalles de Implementacion
 
 * Docker Multi-stage: El archivo Dockerfile utiliza una etapa de build basada en JDK 17 para compilar el codigo y una etapa de runtime basada en JRE 17 para minimizar el tamaño de la imagen final.

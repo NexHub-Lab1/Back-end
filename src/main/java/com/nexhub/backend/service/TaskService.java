@@ -32,6 +32,7 @@ public class TaskService {
     private final TagRepository tagRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskSubmissionRepository taskSubmissionRepository;
+    private final PaymentService paymentService;
 
     @Transactional(readOnly = true)
     public PagedResponse<TaskResponse> getAllTasks(Pageable pageable) {
@@ -98,6 +99,7 @@ public class TaskService {
         }
 
         Task task = findExistingTask(request.id());
+        validateFundingLockedFields(task, request);
 
         if (request.projectId() != null) {
             Project project = projectRepository.findById(request.projectId())
@@ -144,6 +146,9 @@ public class TaskService {
         if (taskAssignmentRepository.existsByTask_Id(task.getId()) || taskSubmissionRepository.existsByTask_Id(task.getId())) {
             throw new IllegalArgumentException("Task has assignments or submissions and cannot be deleted. Cancel it instead.");
         }
+        if (paymentService.taskHasPaymentHistory(task)) {
+            throw new IllegalArgumentException("Task has payment history and cannot be deleted. Cancel it instead.");
+        }
 
         TaskResponse response = TaskResponse.fromTask(task);
         taskRepository.delete(task);
@@ -152,6 +157,7 @@ public class TaskService {
 
     public TaskResponse cancelTask(Long id) {
         Task task = findExistingTask(id);
+        paymentService.refundTaskEscrow(task, "Task cancelled");
         task.setStatus("cancelled");
         task.setUpdated_at(now());
 
@@ -177,6 +183,23 @@ public class TaskService {
         validateTaskFields(request.title(), request.description(), request.rewardAmount());
     }
 
+    private void validateFundingLockedFields(Task task, TaskUpdateRequest request) {
+        if (!paymentService.taskHasLockedFunding(task)) {
+            return;
+        }
+
+        boolean changesProject = request.projectId() != null
+                && !request.projectId().equals(task.getProject().getId());
+        boolean changesRewardAmount = request.rewardAmount() != null
+                && request.rewardAmount().compareTo(task.getRewardAmount()) != 0;
+        boolean changesRewardCurrency = request.rewardCurrency() != null
+                && !normalizeCurrency(request.rewardCurrency()).equals(task.getRewardCurrency());
+
+        if (changesProject || changesRewardAmount || changesRewardCurrency) {
+            throw new IllegalArgumentException("Task project and reward cannot be changed after funding starts");
+        }
+    }
+
     private void validateTaskFields(String title, String description, BigDecimal rewardAmount) {
         if (title == null || title.isBlank()) {
             throw new IllegalArgumentException("Task title is required");
@@ -198,7 +221,7 @@ public class TaskService {
 
     private String normalizeCurrency(String rewardCurrency) {
         if (rewardCurrency == null || rewardCurrency.isBlank()) {
-            return "USD";
+            return "ARS";
         }
         return rewardCurrency.trim().toUpperCase();
     }

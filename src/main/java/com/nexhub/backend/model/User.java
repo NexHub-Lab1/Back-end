@@ -1,6 +1,7 @@
 package com.nexhub.backend.model;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -15,6 +16,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -73,6 +75,16 @@ public class User {
 
     @Getter
     @Setter
+    @Column(name = "available_balance", precision = 12, scale = 2)
+    private BigDecimal availableBalance;
+
+    @Getter
+    @Setter
+    @Column(name = "escrow_balance", precision = 12, scale = 2)
+    private BigDecimal escrowBalance;
+
+    @Getter
+    @Setter
     private Date created_at;
 
     @Getter
@@ -118,10 +130,22 @@ public class User {
         if (status == null || status.isBlank()) {
             status = "active";
         }
+        if (availableBalance == null) {
+            availableBalance = BigDecimal.ZERO;
+        }
+        if (escrowBalance == null) {
+            escrowBalance = BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
     void preUpdate() {
         updated_at = new Date(System.currentTimeMillis());
+        if (availableBalance == null) {
+            availableBalance = BigDecimal.ZERO;
+        }
+        if (escrowBalance == null) {
+            escrowBalance = BigDecimal.ZERO;
+        }
     }
 }
