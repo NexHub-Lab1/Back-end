@@ -17,6 +17,9 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, 
     Page<TaskAssignment> findByTaskId(@Param("taskId") Long taskId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"task", "task.project", "user"})
+    java.util.List<TaskAssignment> findByTask_Id(Long taskId);
+
+    @EntityGraph(attributePaths = {"task", "task.project", "user"})
     @Query("select assignment from TaskAssignment assignment where assignment.user.id = :userId")
     Page<TaskAssignment> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
