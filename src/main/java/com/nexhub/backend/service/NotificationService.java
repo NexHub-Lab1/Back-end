@@ -47,7 +47,9 @@ public class NotificationService {
             emailService.sendNotificationEmail(
                     user.getEmail(),
                     "NexHub Alert: " + type,
-                    message
+                    message,
+                    type,
+                    targetPath
             );
         }
     }
