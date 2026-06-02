@@ -15,6 +15,7 @@ import java.util.List;
 public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final EmailService emailService;
 
     @Transactional
     public void sendNotification(User user, String message, String type) {
@@ -40,6 +41,15 @@ public class NotificationService {
                 "/queue/notifications",
                 savedNotification
         );
+
+        // Send email notification if user enabled them
+        if (user.isEmailNotificationsEnabled() && user.getEmail() != null) {
+            emailService.sendNotificationEmail(
+                    user.getEmail(),
+                    "NexHub Alert: " + type,
+                    message
+            );
+        }
     }
 
     public List<Notification> getNotificationsForUser(User user) {

@@ -29,14 +29,18 @@ public class EmailService {
     @Async
     public void sendNotificationEmail(String to, String subject, String body) {
         try {
+            // Strip any surrounding single or double quotes injected by environment variable parsers
+            String cleanApiKey = apiKey != null ? apiKey.replaceAll("^['\"]|['\"]$", "") : "";
+            String cleanFromEmail = fromEmail != null ? fromEmail.replaceAll("^['\"]|['\"]$", "") : "onboarding@resend.dev";
+
             String url = "https://api.resend.com/emails";
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey);
+            headers.setBearerAuth(cleanApiKey);
 
             Map<String, Object> payload = new HashMap<>();
-            payload.put("from", fromEmail);
+            payload.put("from", cleanFromEmail);
             payload.put("to", to);
             payload.put("subject", subject);
             payload.put("html", "<strong>" + body + "</strong>");

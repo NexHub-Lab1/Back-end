@@ -40,10 +40,13 @@ public class ChatMessageService {
         User sender = userRepository.findById(senderId)
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
 
-        // Security check: Only assignee or task project owner can send messages
+        // Security check: Only assignee, task project owner, or project contributors can send messages
         boolean isAssignee = assignment.getUser().getId().equals(senderId);
         boolean isOwner = assignment.getTask().getProject().getOwner().getId().equals(senderId);
-        if (!isAssignee && !isOwner) {
+        boolean isContributor = assignment.getTask().getProject().getContributors().stream()
+                .anyMatch(u -> u.getId().equals(senderId));
+        
+        if (!isAssignee && !isOwner && !isContributor) {
             throw new IllegalArgumentException("Unauthorized to send message in this chat thread");
         }
 

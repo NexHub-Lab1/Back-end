@@ -8,6 +8,7 @@ public record UpdateAccountRequest(
         String newUsername,
         String newEmail,
         String newPassword,
-        Set<String> skills
+        Set<String> skills,
+        Boolean emailNotificationsEnabled
 ) {
 }
