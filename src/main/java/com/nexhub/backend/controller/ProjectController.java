@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.NoSuchElementException;
 
 @RestController
@@ -52,7 +53,7 @@ public class ProjectController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<ProjectResponse>> create(@RequestBody ProjectRequest request) {
+    public ResponseEntity<ApiResponse<ProjectResponse>> create(@Valid @RequestBody ProjectRequest request) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("Project created correctly", projectService.createProject(request)));
@@ -97,7 +98,7 @@ public class ProjectController {
     }
 
     @PostMapping("/updateproject")
-    public ResponseEntity<ApiResponse<ProjectResponse>> update(@RequestBody ProjectUpdateRequest request) {
+    public ResponseEntity<ApiResponse<ProjectResponse>> update(@Valid @RequestBody ProjectUpdateRequest request) {
         try {
             return ResponseEntity.ok(ApiResponse.success("Updated correctly", projectService.updateProject(request)));
         } catch (NoSuchElementException e) {
