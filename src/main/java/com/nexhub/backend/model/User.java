@@ -55,6 +55,10 @@ public class User {
 
     @Getter
     @Setter
+    private String github_access_token;
+
+    @Getter
+    @Setter
     private String profile_image_url;
 
     @Getter
