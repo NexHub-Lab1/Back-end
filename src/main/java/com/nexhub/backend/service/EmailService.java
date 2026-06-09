@@ -1,33 +1,27 @@
 package com.nexhub.backend.service;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailService {
     
-    @Value("${resend.api.key}")
-    private String apiKey;
+    private final JavaMailSender mailSender;
 
-    @Value("${resend.from.email}")
+    @Value("${spring.mail.username:noreply@nexhub.com}")
     private String fromEmail;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
-
-    private final RestTemplate restTemplate = new RestTemplate();
 
     @Async
     public void sendNotificationEmail(String to, String subject, String body) {
@@ -38,8 +32,10 @@ public class EmailService {
     public void sendNotificationEmail(String to, String subject, String body, String type, String targetPath) {
         try {
             // Strip any surrounding single or double quotes injected by environment variable parsers
-            String cleanApiKey = apiKey != null ? apiKey.replaceAll("^['\"]|['\"]$", "") : "";
-            String cleanFromEmail = fromEmail != null ? fromEmail.replaceAll("^['\"]|['\"]$", "") : "onboarding@resend.dev";
+            String cleanFromEmail = fromEmail != null ? fromEmail.replaceAll("^['\"]|['\"]$", "") : "noreply@nexhub.com";
+            if (cleanFromEmail.isBlank()) {
+                cleanFromEmail = "noreply@nexhub.com";
+            }
             String cleanFrontendUrl = frontendUrl != null ? frontendUrl.replaceAll("^['\"]|['\"]$", "") : "http://localhost:5173";
 
             // Resolve badge styling based on notification type
@@ -135,24 +131,20 @@ public class EmailService {
                     + "</body>"
                     + "</html>";
 
-            String url = "https://api.resend.com/emails";
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            
+            helper.setFrom(cleanFromEmail);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(cleanApiKey);
-
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("from", cleanFromEmail);
-            payload.put("to", to);
-            payload.put("subject", subject);
-            payload.put("html", htmlContent);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-
-            restTemplate.postForEntity(url, entity, String.class);
-            log.info("Email sent successfully via Resend to {}", to);
+            mailSender.send(message);
+            log.info("Email sent successfully via SMTP to {}", to);
+        } catch (MessagingException e) {
+            log.error("MessagingException while sending email via SMTP to {}: {}", to, e.getMessage());
         } catch (Exception e) {
-            log.error("Failed to send email via Resend to {}: {}", to, e.getMessage());
+            log.error("Failed to send email via SMTP to {}: {}", to, e.getMessage());
         }
     }
 }
