@@ -37,6 +37,7 @@ public class GithubService {
     private static final String GITHUB_USER_URL = "https://api.github.com/user";
     private static final String GITHUB_USER_EMAILS_URL = "https://api.github.com/user/emails";
     private static final String GITHUB_USER_REPOS_URL_TEMPLATE = "https://api.github.com/users/%s/repos?sort=updated&per_page=100";
+    private static final String GITHUB_USER_AGENT = "NexHub";
 
     private final UserRepository userRepository;
     private final JwtUtils jwtUtils;
@@ -93,6 +94,7 @@ public class GithubService {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(String.format(GITHUB_USER_REPOS_URL_TEMPLATE, encodePathSegment(user.getGithub_username()))))
                 .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
+                .header(HttpHeaders.USER_AGENT, GITHUB_USER_AGENT)
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .GET()
                 .build();
@@ -132,6 +134,7 @@ public class GithubService {
                 .uri(URI.create(GITHUB_ACCESS_TOKEN_URL))
                 .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                .header(HttpHeaders.USER_AGENT, GITHUB_USER_AGENT)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
@@ -157,6 +160,7 @@ public class GithubService {
                 .uri(URI.create(GITHUB_USER_URL))
                 .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .header(HttpHeaders.USER_AGENT, GITHUB_USER_AGENT)
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .GET()
                 .build();
@@ -188,6 +192,7 @@ public class GithubService {
                 .uri(URI.create(GITHUB_USER_EMAILS_URL))
                 .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .header(HttpHeaders.USER_AGENT, GITHUB_USER_AGENT)
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .GET()
                 .build();
