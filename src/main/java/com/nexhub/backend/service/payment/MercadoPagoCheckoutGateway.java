@@ -85,7 +85,7 @@ public class MercadoPagoCheckoutGateway implements PaymentGateway {
                     requiredString(response, "currency_id")
             );
         } catch (RestClientResponseException e) {
-            throw new IllegalArgumentException("Unable to retrieve payment from Mercado Pago", e);
+            throw new IllegalArgumentException("Unable to retrieve payment from Mercado Pago: " + mercadoPagoError(e), e);
         }
     }
 
@@ -103,8 +103,16 @@ public class MercadoPagoCheckoutGateway implements PaymentGateway {
             }
             return response;
         } catch (RestClientResponseException e) {
-            throw new IllegalArgumentException("Unable to create Mercado Pago checkout preference", e);
+            throw new IllegalArgumentException("Unable to create Mercado Pago checkout preference: " + mercadoPagoError(e), e);
         }
+    }
+
+    private String mercadoPagoError(RestClientResponseException e) {
+        String body = e.getResponseBodyAsString();
+        if (body == null || body.isBlank()) {
+            return "HTTP " + e.getStatusCode().value();
+        }
+        return body;
     }
 
     private Map<String, String> buildBackUrls(Payment payment) {
