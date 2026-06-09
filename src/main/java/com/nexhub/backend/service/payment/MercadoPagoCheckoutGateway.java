@@ -47,7 +47,9 @@ public class MercadoPagoCheckoutGateway implements PaymentGateway {
         body.put("items", List.of(item));
         body.put("external_reference", payment.getExternalReference());
         body.put("back_urls", buildBackUrls(payment));
-        body.put("auto_return", "approved");
+        if (shouldAutoReturn()) {
+            body.put("auto_return", "approved");
+        }
 
         body.put("notification_url", webhookUrl.trim());
 
@@ -140,6 +142,10 @@ public class MercadoPagoCheckoutGateway implements PaymentGateway {
         return frontendUrl.endsWith("/")
                 ? frontendUrl.substring(0, frontendUrl.length() - 1)
                 : frontendUrl;
+    }
+
+    private boolean shouldAutoReturn() {
+        return trimmedFrontendUrl().toLowerCase().startsWith("https://");
     }
 
     private void validateAccessTokenConfigured() {
