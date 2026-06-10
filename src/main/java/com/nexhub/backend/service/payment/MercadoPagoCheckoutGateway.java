@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class MercadoPagoCheckoutGateway implements PaymentGateway {
@@ -78,16 +79,49 @@ public class MercadoPagoCheckoutGateway implements PaymentGateway {
                 throw new IllegalArgumentException("Mercado Pago returned an empty payment response");
             }
 
-            return new ProviderPaymentResult(
-                    String.valueOf(response.get("id")),
-                    requiredString(response, "external_reference"),
-                    requiredString(response, "status"),
-                    optionalString(response, "status_detail"),
-                    requiredAmount(response, "transaction_amount"),
-                    requiredString(response, "currency_id")
-            );
+            return toProviderPaymentResult(response);
         } catch (RestClientResponseException e) {
             throw new IllegalArgumentException("Unable to retrieve payment from Mercado Pago: " + mercadoPagoError(e), e);
+        }
+    }
+
+    @Override
+    public Optional<ProviderPaymentResult> findPaymentByExternalReference(String externalReference) {
+        validateAccessTokenConfigured();
+        if (externalReference == null || externalReference.isBlank()) {
+            throw new IllegalArgumentException("Mercado Pago external reference is required");
+        }
+
+        try {
+            Map<String, Object> response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v1/payments/search")
+                            .queryParam("external_reference", externalReference.trim())
+                            .queryParam("sort", "date_created")
+                            .queryParam("criteria", "desc")
+                            .queryParam("limit", 1)
+                            .build())
+                    .header("Authorization", "Bearer " + accessToken.trim())
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<>() {});
+
+            if (response == null) {
+                return Optional.empty();
+            }
+
+            Object results = response.get("results");
+            if (!(results instanceof List<?> resultList) || resultList.isEmpty()) {
+                return Optional.empty();
+            }
+            if (!(resultList.get(0) instanceof Map<?, ?> rawPayment)) {
+                return Optional.empty();
+            }
+
+            Map<String, Object> paymentResponse = new LinkedHashMap<>();
+            rawPayment.forEach((key, value) -> paymentResponse.put(String.valueOf(key), value));
+            return Optional.of(toProviderPaymentResult(paymentResponse));
+        } catch (RestClientResponseException e) {
+            throw new IllegalArgumentException("Unable to search payment in Mercado Pago: " + mercadoPagoError(e), e);
         }
     }
 
@@ -180,5 +214,16 @@ public class MercadoPagoCheckoutGateway implements PaymentGateway {
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Mercado Pago response contains an invalid " + key, e);
         }
+    }
+
+    private ProviderPaymentResult toProviderPaymentResult(Map<String, Object> response) {
+        return new ProviderPaymentResult(
+                String.valueOf(response.get("id")),
+                requiredString(response, "external_reference"),
+                requiredString(response, "status"),
+                optionalString(response, "status_detail"),
+                requiredAmount(response, "transaction_amount"),
+                requiredString(response, "currency_id")
+        );
     }
 }

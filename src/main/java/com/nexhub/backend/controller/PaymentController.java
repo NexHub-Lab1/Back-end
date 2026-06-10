@@ -74,6 +74,23 @@ public class PaymentController {
         }
     }
 
+    @PostMapping("/tasks/{taskId}/sync")
+    public ResponseEntity<ApiResponse<List<PaymentResponse>>> syncTaskPayments(
+            @PathVariable Long taskId,
+            Authentication authentication
+    ) {
+        try {
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Task payment status synced",
+                    paymentService.syncTaskPayments(taskId, authentication.getName())
+            ));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @GetMapping("/me/balance")
     public ResponseEntity<ApiResponse<BalanceResponse>> getMyBalance(Authentication authentication) {
         try {

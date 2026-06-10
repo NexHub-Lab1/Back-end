@@ -98,6 +98,31 @@ public class PaymentService {
             return;
         }
 
+        applyGatewayPaymentResult(payment, result);
+    }
+
+    public List<PaymentResponse> syncTaskPayments(Long taskId, String authenticatedEmail) {
+        Task task = findExistingTask(taskId);
+        User actor = findAuthenticatedUser(authenticatedEmail);
+        validatePayerOwnsTaskProject(task, actor);
+
+        syncPendingTaskPayment(task);
+        return taskPaymentResponses(task.getId());
+    }
+
+    private void syncPendingTaskPayment(Task task) {
+        Payment pendingPayment = paymentRepository
+                .findFirstByTask_IdAndStatusOrderByCreatedAtDesc(task.getId(), PENDING_STATUS)
+                .orElse(null);
+        if (pendingPayment == null) {
+            return;
+        }
+
+        paymentGateway.findPaymentByExternalReference(pendingPayment.getExternalReference())
+                .ifPresent(result -> applyGatewayPaymentResult(pendingPayment, result));
+    }
+
+    private void applyGatewayPaymentResult(Payment payment, ProviderPaymentResult result) {
         if (payment.getProviderPaymentId() != null
                 && !payment.getProviderPaymentId().equals(result.providerPaymentId())) {
             throw new IllegalArgumentException("Mercado Pago payment does not match the stored checkout");
@@ -125,6 +150,10 @@ public class PaymentService {
         User actor = findAuthenticatedUser(authenticatedEmail);
         validatePayerOwnsTaskProject(task, actor);
 
+        return taskPaymentResponses(taskId);
+    }
+
+    private List<PaymentResponse> taskPaymentResponses(Long taskId) {
         return paymentRepository.findByTask_IdOrderByCreatedAtDesc(taskId).stream()
                 .map(PaymentResponse::fromPayment)
                 .toList();
