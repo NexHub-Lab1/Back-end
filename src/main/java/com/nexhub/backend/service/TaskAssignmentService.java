@@ -160,6 +160,10 @@ public class TaskAssignmentService {
         if (owner != null && owner.getId() != null && owner.getId().equals(user.getId())) {
             throw new IllegalArgumentException("Project owner cannot be assigned to their own task");
         }
+
+        if (user.getReputation_score() != null && user.getReputation_score() < 20) {
+            throw new IllegalArgumentException("Your reputation score is too low to claim new tasks (Minimum required: 20 Reputation)");
+        }
     }
 
     private void validateTaskHasNoActiveAssignment(Long taskId, Long assignmentIdToIgnore) {

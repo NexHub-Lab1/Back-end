@@ -16,6 +16,9 @@ public record TaskSubmissionUpdateRequest(
         @Size(max = 2000, message = "Los comentarios de revisión no pueden superar los 2000 caracteres")
         String reviewComments,
 
-        Long reviewerId
+        Long reviewerId,
+
+        @Size(max = 100, message = "El motivo de rechazo no puede superar los 100 caracteres")
+        String rejectionReason
 ) {
 }
