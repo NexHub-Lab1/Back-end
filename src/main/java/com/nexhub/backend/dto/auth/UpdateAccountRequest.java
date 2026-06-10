@@ -20,7 +20,7 @@ public record UpdateAccountRequest(
 
         @Size(max = 100, message = "La nueva contraseña es demasiado larga")
         String newPassword,
-
-        Set<String> skills
+        Set<String> skills,
+        Boolean emailNotificationsEnabled
 ) {
 }

@@ -124,7 +124,8 @@ public class AuthController {
                     request.newUsername(),
                     request.newEmail(),
                     request.newPassword(),
-                    request.skills()
+                    request.skills(),
+                    request.emailNotificationsEnabled()
             );
 
             Map<String, Object> data = new HashMap<>();

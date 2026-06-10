@@ -328,7 +328,7 @@ def main():
         token=tokens["alice"],
         project_id=p2_id,
         title="Enforce JSR-380 input validations",
-        description="Implement validation on DTO records (Login, Signup, Project, and Tasks) using spring-boot-starter-validation annotations like @Size, @NotBlank, and @Email. Write a global handler for method argument violations.",
+        description="Implement validation on DTO records (Login, Signup, Project, and Tasks) using spring-boot-starter-validation annotations like @Size, @NotBlank, and @Email. Write a global handler for method argument validations.",
         deliverables="DTO validation additions, @RestControllerAdvice exception handler updates, and clean test suite coverage.",
         reward_amount=180.00,
         reward_currency="USD",

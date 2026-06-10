@@ -85,6 +85,10 @@ public class User {
 
     @Getter
     @Setter
+    private boolean emailNotificationsEnabled = true;
+
+    @Getter
+    @Setter
     @OneToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "followed_id",

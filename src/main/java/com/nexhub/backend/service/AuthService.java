@@ -162,7 +162,8 @@ public class AuthService {
             String newUsername,
             String newEmail,
             String newPassword,
-            Set<String> skills
+            Set<String> skills,
+            Boolean emailNotificationsEnabled
     ) {
         validateEmail(authenticatedEmail);
 
@@ -204,6 +205,10 @@ public class AuthService {
 
         if (skills != null) {
             user.setSkills(resolveTags(skills));
+        }
+
+        if (emailNotificationsEnabled != null) {
+            user.setEmailNotificationsEnabled(emailNotificationsEnabled);
         }
 
         if (!UserChecker.usernameCheck(user) || !UserChecker.emailCheck(user)) {
