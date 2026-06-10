@@ -78,6 +78,11 @@ public class Task {
 
     @Getter
     @Setter
+    @Column(name = "min_reputation", nullable = false)
+    private Integer minReputation;
+
+    @Getter
+    @Setter
     @Column(nullable = false)
     private Date created_at;
 
@@ -114,6 +119,9 @@ public class Task {
         }
         if (maxAttempts == null || maxAttempts < 1) {
             maxAttempts = 1;
+        }
+        if (minReputation == null) {
+            minReputation = 0;
         }
     }
 

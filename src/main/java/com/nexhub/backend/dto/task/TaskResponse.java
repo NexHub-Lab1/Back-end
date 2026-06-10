@@ -18,6 +18,7 @@ public record TaskResponse(
         Date deadline,
         String status,
         Integer maxAttempts,
+        Integer minReputation,
         Date createdAt,
         Date updatedAt,
         List<String> recommendedSkills
@@ -35,6 +36,7 @@ public record TaskResponse(
                 task.getDeadline(),
                 task.getStatus(),
                 task.getMaxAttempts(),
+                task.getMinReputation() != null ? task.getMinReputation() : 0,
                 task.getCreated_at(),
                 task.getUpdated_at(),
                 task.getRecommendedSkills() == null

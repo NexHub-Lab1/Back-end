@@ -197,7 +197,7 @@ public class TaskSubmissionService {
                         penalty = 25;
                         developer.setStreak_day(0);
                     }
-                    developer.setReputation_score(Math.max(0, currentRep - penalty));
+                    developer.setReputation_score(currentRep - penalty);
                 }
                 userRepository.save(developer);
 

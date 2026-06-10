@@ -37,6 +37,8 @@ public record TaskUpdateRequest(
         @Min(value = 1, message = "Debe haber al menos 1 intento permitido")
         Integer maxAttempts,
 
+        Integer minReputation,
+
         Set<String> recommendedSkills
 ) {
 }

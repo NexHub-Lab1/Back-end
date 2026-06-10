@@ -161,8 +161,10 @@ public class TaskAssignmentService {
             throw new IllegalArgumentException("Project owner cannot be assigned to their own task");
         }
 
-        if (user.getReputation_score() != null && user.getReputation_score() < 20) {
-            throw new IllegalArgumentException("Your reputation score is too low to claim new tasks (Minimum required: 20 Reputation)");
+        int minRep = task.getMinReputation() != null ? task.getMinReputation() : 0;
+        int userRep = user.getReputation_score() != null ? user.getReputation_score() : 0;
+        if (userRep < minRep) {
+            throw new IllegalArgumentException("Your reputation score is too low to claim this task (Minimum required: " + minRep + " Reputation)");
         }
     }
 
