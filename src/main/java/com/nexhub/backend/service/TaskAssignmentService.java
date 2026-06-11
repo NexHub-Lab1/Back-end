@@ -82,7 +82,7 @@ public class TaskAssignmentService {
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
 
         validateUserCanTakeTask(task, user);
-        validateTaskHasNoActiveAssignment(task.getId(), null);
+        validateTaskAssignmentLimit(task, user, null);
 
         TaskAssignment assignment = new TaskAssignment();
         assignment.setTask(task);
@@ -113,7 +113,7 @@ public class TaskAssignmentService {
         if (request.status() != null && !request.status().isBlank()) {
             String status = normalizeStatus(request.status());
             if (ACTIVE_STATUS.equals(status)) {
-                validateTaskHasNoActiveAssignment(assignment.getTask().getId(), assignment.getId());
+                validateTaskAssignmentLimit(assignment.getTask(), assignment.getUser(), assignment.getId());
             }
             assignment.setStatus(status);
         }
@@ -172,10 +172,54 @@ public class TaskAssignmentService {
         }
     }
 
-    private void validateTaskHasNoActiveAssignment(Long taskId, Long assignmentIdToIgnore) {
-        Long activeAssignments = taskAssignmentRepository.countOtherActiveByTaskId(taskId, assignmentIdToIgnore);
-        if (activeAssignments != null && activeAssignments > 0) {
+    private void validateTaskAssignmentLimit(Task task, User user, Long assignmentIdToIgnore) {
+        java.util.List<TaskAssignment> activeAssignments = taskAssignmentRepository.findByTask_Id(task.getId()).stream()
+                .filter(a -> ACTIVE_STATUS.equalsIgnoreCase(a.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+
+        if (activeAssignments.isEmpty()) {
+            return;
+        }
+
+        // If the task is collaborative, only restrict the same user from having multiple active assignments
+        if (Boolean.TRUE.equals(task.getCollaborative())) {
+            boolean userHasActive = activeAssignments.stream()
+                    .anyMatch(a -> a.getUser().getId().equals(user.getId())
+                            && (assignmentIdToIgnore == null || !a.getId().equals(assignmentIdToIgnore)));
+            if (userHasActive) {
+                throw new IllegalArgumentException("You already have an active assignment on this task");
+            }
+            return;
+        }
+
+        // If it is NOT collaborative, enforce standard single active assignment checks
+        if (assignmentIdToIgnore == null) {
             throw new IllegalArgumentException("Task already has an active assignment");
+        }
+
+        TaskAssignment targetAssignment = taskAssignmentRepository.findById(assignmentIdToIgnore)
+                .orElse(null);
+        if (targetAssignment == null) {
+            throw new IllegalArgumentException("Assignment to update not found");
+        }
+
+        Long parentId = targetAssignment.getParentAssignment() != null
+                ? targetAssignment.getParentAssignment().getId()
+                : targetAssignment.getId();
+
+        boolean hasOutsideActive = activeAssignments.stream()
+                .anyMatch(a -> {
+                    if (a.getId().equals(assignmentIdToIgnore)) {
+                        return false;
+                    }
+                    Long otherParentId = a.getParentAssignment() != null
+                            ? a.getParentAssignment().getId()
+                            : a.getId();
+                    return !otherParentId.equals(parentId);
+                });
+
+        if (hasOutsideActive) {
+            throw new IllegalArgumentException("Task already has an active assignment from another developer or team");
         }
     }
 

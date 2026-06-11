@@ -17,7 +17,8 @@ public record TaskAssignmentResponse(
         String username,
         Date assignedAt,
         String status,
-        Integer attemptsUsed
+        Integer attemptsUsed,
+        Long parentAssignmentId
 ) {
     public static TaskAssignmentResponse fromTaskAssignment(TaskAssignment assignment) {
         Task task = assignment.getTask();
@@ -34,7 +35,8 @@ public record TaskAssignmentResponse(
                 user != null ? user.getUsername() : null,
                 assignment.getAssignedAt(),
                 assignment.getStatus(),
-                assignment.getAttemptsUsed()
+                assignment.getAttemptsUsed(),
+                assignment.getParentAssignment() != null ? assignment.getParentAssignment().getId() : null
         );
     }
 }

@@ -83,6 +83,11 @@ public class Task {
 
     @Getter
     @Setter
+    @Column(name = "collaborative")
+    private Boolean collaborative = false;
+
+    @Getter
+    @Setter
     @Column(nullable = false)
     private Date created_at;
 
@@ -122,6 +127,9 @@ public class Task {
         }
         if (minReputation == null) {
             minReputation = 0;
+        }
+        if (collaborative == null) {
+            collaborative = false;
         }
     }
 
