@@ -40,5 +40,14 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, 
             @Param("taskId") Long taskId,
             @Param("assignmentIdToIgnore") Long assignmentIdToIgnore
     );
+
+    @EntityGraph(attributePaths = {"task", "task.project", "user"})
+    @Query("""
+            select assignment from TaskAssignment assignment
+            where lower(assignment.status) = 'active'
+            and assignment.task.deadline is not null
+            and assignment.task.deadline < :now
+            """)
+    java.util.List<TaskAssignment> findActiveOverdueAssignments(@Param("now") java.sql.Date now);
 }
 

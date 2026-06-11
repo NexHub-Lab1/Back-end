@@ -255,6 +255,11 @@ public class TaskSubmissionService {
             throw new IllegalArgumentException("Assignment must be active to submit work");
         }
 
+        Task task = assignment.getTask();
+        if (task.getDeadline() != null && task.getDeadline().before(now())) {
+            throw new IllegalArgumentException("Cannot submit deliverable: the task deadline has already passed");
+        }
+
         int maxAttempts = maxAttemptsForTask(assignment.getTask());
         if (currentAttemptsUsed(assignment) >= maxAttempts) {
             throw new IllegalArgumentException("Assignment has reached the maximum number of attempts");

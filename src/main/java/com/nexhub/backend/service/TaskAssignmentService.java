@@ -161,6 +161,10 @@ public class TaskAssignmentService {
             throw new IllegalArgumentException("Project owner cannot be assigned to their own task");
         }
 
+        if (task.getDeadline() != null && task.getDeadline().before(now())) {
+            throw new IllegalArgumentException("Cannot claim task: the deadline has already passed");
+        }
+
         int minRep = task.getMinReputation() != null ? task.getMinReputation() : 0;
         int userRep = user.getReputation_score() != null ? user.getReputation_score() : 0;
         if (userRep < minRep) {
