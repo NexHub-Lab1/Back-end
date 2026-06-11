@@ -4,9 +4,38 @@ import urllib.error
 import json
 import sys
 import subprocess
+import os
 from datetime import datetime, timedelta
 
 BASE_URL = "http://localhost:8080"
+
+# Dynamically resolve project root path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+
+def load_env():
+    """Parses .env file from project root at runtime to load database credentials."""
+    env = {}
+    env_path = os.path.join(PROJECT_ROOT, ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        parts = line.split("=", 1)
+                        if len(parts) == 2:
+                            key = parts[0].strip()
+                            val = parts[1].strip().strip("'\"")
+                            env[key] = val
+        except Exception as e:
+            print(f"Warning: Could not parse .env: {e}")
+    return env
+
+# Load environment variables
+ENV = load_env()
+DB_USER = ENV.get("DB_USER", "postgres")
+DB_NAME = ENV.get("DB_NAME", "nexhub_db")
 
 def api_request(path, method="POST", data=None, token=None):
     url = f"{BASE_URL}{path}"
@@ -68,12 +97,12 @@ def login_user(email, password):
         print(f" -> ERROR logging in: {res.get('message')}")
         return None, None
 
-def update_user_db_fields(username, streak_day, status):
-    print(f"Updating user '{username}' in DB: streak_day={streak_day}, status='{status}'...")
-    sql = f"UPDATE users SET streak_day = {streak_day}, status = '{status}' WHERE username = '{username}';"
+def update_user_db_fields(username, streak_day, status, reputation_score=0):
+    print(f"Updating user '{username}' in DB: streak_day={streak_day}, status='{status}', reputation_score={reputation_score}...")
+    sql = f"UPDATE users SET streak_day = {streak_day}, status = '{status}', reputation_score = {reputation_score} WHERE username = '{username}';"
     try:
-        cmd = ["docker", "compose", "exec", "-T", "db", "psql", "-U", "postgres", "-d", "nexhub_db", "-c", sql]
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=r"C:\Users\bauti\projects\NexHub")
+        cmd = ["docker", "compose", "exec", "-T", "db", "psql", "-U", DB_USER, "-d", DB_NAME, "-c", sql]
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
         if result.returncode == 0:
             print(f" -> DB updated successfully for user {username}.")
             return True
@@ -103,7 +132,7 @@ def create_project(token, owner_id, name, description, github_repo, status, tags
         print(f" -> ERROR creating project '{name}': {res.get('message')}")
         return None
 
-def create_task(token, project_id, title, description, deliverables, reward_amount, reward_currency, deadline_days_ahead, max_attempts, skills):
+def create_task(token, project_id, title, description, deliverables, reward_amount, reward_currency, deadline_days_ahead, max_attempts, skills, min_reputation=0):
     print(f"Creating task '{title}'...")
     deadline_date = (datetime.now() + timedelta(days=deadline_days_ahead)).strftime("%Y-%m-%d")
     payload = {
@@ -116,6 +145,7 @@ def create_task(token, project_id, title, description, deliverables, reward_amou
         "deadline": deadline_date,
         "status": "OPEN",
         "maxAttempts": max_attempts,
+        "minReputation": min_reputation,
         "recommendedSkills": skills
     }
     res = api_request("/api/tasks", method="POST", data=payload, token=token)
@@ -171,7 +201,7 @@ def submit_solution(token, assignment_id, pr_url):
         print(f" -> ERROR submitting solution: {res.get('message')}")
         return None
 
-def review_submission(token, submission_id, status, comments, reviewer_id):
+def review_submission(token, submission_id, status, comments, reviewer_id, rejection_reason=None):
     print(f"Reviewing submission ID {submission_id} ({status})...")
     payload = {
         "id": submission_id,
@@ -179,6 +209,8 @@ def review_submission(token, submission_id, status, comments, reviewer_id):
         "reviewComments": comments,
         "reviewerId": reviewer_id
     }
+    if rejection_reason:
+        payload["rejectionReason"] = rejection_reason
     res = api_request("/api/task-submissions/updatesubmission", method="POST", data=payload, token=token)
     if res.get("status") == "success":
         print(f" -> Submission reviewed successfully.")
@@ -194,21 +226,21 @@ def main():
 
     # 1. Register Users
     users_info = [
-        {"username": "alice", "email": "alice@example.com", "password": "Password123", "streak": 5, "status": "active"},
-        {"username": "bob", "email": "bob@example.com", "password": "Password123", "streak": 0, "status": "active"},
-        {"username": "charlie", "email": "charlie@example.com", "password": "Password123", "streak": 8, "status": "active"},
-        {"username": "david", "email": "david@example.com", "password": "Password123", "streak": 2, "status": "active"},
-        {"username": "elena", "email": "elena@example.com", "password": "Password123", "streak": 12, "status": "active"},
-        {"username": "frank", "email": "frank@example.com", "password": "Password123", "streak": 0, "status": "deleted"},
-        {"username": "grace", "email": "grace@example.com", "password": "Password123", "streak": 45, "status": "active"},
-        {"username": "hector", "email": "hector@example.com", "password": "Password123", "streak": 3, "status": "deleted"},
-        {"username": "ivan", "email": "ivan@example.com", "password": "Password123", "streak": 15, "status": "active"},
-        {"username": "julia", "email": "julia@example.com", "password": "Password123", "streak": 22, "status": "active"},
-        {"username": "kevin", "email": "kevin@example.com", "password": "Password123", "streak": 17, "status": "deleted"},
-        {"username": "laura", "email": "laura@example.com", "password": "Password123", "streak": 84, "status": "deleted"},
-        {"username": "mike", "email": "mike@example.com", "password": "Password123", "streak": 0, "status": "active"},
-        {"username": "nancy", "email": "nancy@example.com", "password": "Password123", "streak": 1, "status": "active"},
-        {"username": "oscar", "email": "oscar@example.com", "password": "Password123", "streak": 30, "status": "active"}
+        {"username": "alice", "email": "alice@example.com", "password": "Password123", "streak": 5, "status": "active", "reputation": 100},
+        {"username": "bob", "email": "bob@example.com", "password": "Password123", "streak": 0, "status": "active", "reputation": 0},
+        {"username": "charlie", "email": "charlie@example.com", "password": "Password123", "streak": 8, "status": "active", "reputation": 35},
+        {"username": "david", "email": "david@example.com", "password": "Password123", "streak": 2, "status": "active", "reputation": 50},
+        {"username": "elena", "email": "elena@example.com", "password": "Password123", "streak": 12, "status": "active", "reputation": 80},
+        {"username": "frank", "email": "frank@example.com", "password": "Password123", "streak": 0, "status": "deactivated", "reputation": 0},
+        {"username": "grace", "email": "grace@example.com", "password": "Password123", "streak": 45, "status": "active", "reputation": 150},
+        {"username": "hector", "email": "hector@example.com", "password": "Password123", "streak": 3, "status": "deactivated", "reputation": 20},
+        {"username": "ivan", "email": "ivan@example.com", "password": "Password123", "streak": 15, "status": "active", "reputation": 15},
+        {"username": "julia", "email": "julia@example.com", "password": "Password123", "streak": 22, "status": "active", "reputation": 65},
+        {"username": "kevin", "email": "kevin@example.com", "password": "Password123", "streak": 17, "status": "deactivated", "reputation": 40},
+        {"username": "laura", "email": "laura@example.com", "password": "Password123", "streak": 84, "status": "deactivated", "reputation": 95},
+        {"username": "mike", "email": "mike@example.com", "password": "Password123", "streak": 0, "status": "active", "reputation": 0},
+        {"username": "nancy", "email": "nancy@example.com", "password": "Password123", "streak": 1, "status": "active", "reputation": 30},
+        {"username": "oscar", "email": "oscar@example.com", "password": "Password123", "streak": 30, "status": "active", "reputation": 75}
     ]
     
     for u in users_info:
@@ -229,9 +261,9 @@ def main():
         sys.exit(1)
 
     print("\n----------------------------------------------------")
-    # 3. Update User database-only fields (Streaks & Deleted Status)
+    # 3. Update User database-only fields (Streaks, Reputation, Status)
     for u in users_info:
-        update_user_db_fields(u["username"], u["streak"], u["status"])
+        update_user_db_fields(u["username"], u["streak"], u["status"], u["reputation"])
 
     print("\n----------------------------------------------------")
     # 4. Create projects with different owner users, statuses, and descriptions
@@ -407,10 +439,71 @@ def main():
         if sub_d:
             review_submission(tokens["grace"], sub_d, "APPROVED", "Excelente implementación. La cola de reintentos y el DLQ funcionan perfectamente bajo estrés.", ids["grace"])
 
-    # 4. Ivan's Submission (Pending)
+    # 4. Ivan's Submission (Spam Rejection - resets streak and penalizes reputation by 25)
     aivan_id = assign_task(tokens["ivan"], t5_id, ids["ivan"], "ivan")
     if aivan_id:
-        submit_solution(tokens["ivan"], aivan_id, "https://github.com/grace/pipeline/pull/120")
+        sub_ivan = submit_solution(tokens["ivan"], aivan_id, "https://github.com/grace/pipeline/pull/120")
+        if sub_ivan:
+            review_submission(tokens["grace"], sub_ivan, "REJECTED", "Spam deliverable. Only dummy text was provided in the PR description.", ids["grace"], rejection_reason="SPAM_OR_LOW_EFFORT")
+
+    # 5. Seed new features (Reputation Gates, Deadlines, Attempt Exhaustion)
+    print("\nSeeding new Quality Control & Deadline scenarios...")
+
+    # A. Task with high reputation gate (minReputation = 60)
+    t7_id = create_task(
+        token=tokens["alice"],
+        project_id=p1_id,
+        title="Refactor State Management to Redux Toolkit",
+        description="Migrate legacy React Native context providers to Redux Toolkit slice architecture to support global query caching.",
+        deliverables="Redux store setup, converted login/profile slice states, and clean async Thunk integrations.",
+        reward_amount=220.00,
+        reward_currency="USD",
+        deadline_days_ahead=15,
+        max_attempts=3,
+        skills=["react-native", "redux", "typescript"],
+        min_reputation=60
+    )
+
+    # B. Expired Task (deadline is in the past, claimed by Nancy)
+    t8_id = create_task(
+        token=tokens["grace"],
+        project_id=p3_id,
+        title="Legacy Docker Compose Cleanup",
+        description="Cleanup deprecated environment scripts and migrate secrets to docker compose configurations.",
+        deliverables="Clean docker-compose file with environment variables.",
+        reward_amount=90.00,
+        reward_currency="USD",
+        deadline_days_ahead=-3, # Overdue task!
+        max_attempts=2,
+        skills=["docker", "bash"]
+    )
+    # Claim expired task (to test scheduler expiration)
+    assign_task(tokens["nancy"], t8_id, ids["nancy"], "nancy")
+
+    # C. Max Attempts Exhaustion scenario
+    t9_id = create_task(
+        token=tokens["alice"],
+        project_id=p2_id,
+        title="Add SpotBugs static analysis tool",
+        description="Configure SpotBugs inside gradle.build to automatically check local compilation builds for common security flaws.",
+        deliverables="build.gradle configs and reports showing successful lint analysis builds.",
+        reward_amount=120.00,
+        reward_currency="USD",
+        deadline_days_ahead=12,
+        max_attempts=2, # Max attempts = 2
+        skills=["java", "gradle"]
+    )
+    # Hector claims it
+    ahector_id = assign_task(tokens["hector"], t9_id, ids["hector"], "hector")
+    if ahector_id:
+        # Attempt 1: Submit and reject
+        sub_h1 = submit_solution(tokens["hector"], ahector_id, "https://github.com/nexhub/ai-auditor/pull/12")
+        if sub_h1:
+            review_submission(tokens["alice"], sub_h1, "REJECTED", "Analysis configs are fine, but compile errors are thrown when running gradle check. Please fix compiler errors.", ids["alice"])
+        # Attempt 2: Submit and reject again (this will trigger failed status automatically)
+        sub_h2 = submit_solution(tokens["hector"], ahector_id, "https://github.com/nexhub/ai-auditor/pull/15")
+        if sub_h2:
+            review_submission(tokens["alice"], sub_h2, "REJECTED", "Compile errors persist. Max attempts are reached, task is released/failed.", ids["alice"])
 
     print("\n====================================================")
     print("          SEEDING COMPLETED SUCCESSFULLY!           ")
