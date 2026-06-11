@@ -173,9 +173,41 @@ public class TaskAssignmentService {
     }
 
     private void validateTaskHasNoActiveAssignment(Long taskId, Long assignmentIdToIgnore) {
-        Long activeAssignments = taskAssignmentRepository.countOtherActiveByTaskId(taskId, assignmentIdToIgnore);
-        if (activeAssignments != null && activeAssignments > 0) {
+        java.util.List<TaskAssignment> activeAssignments = taskAssignmentRepository.findByTask_Id(taskId).stream()
+                .filter(a -> ACTIVE_STATUS.equalsIgnoreCase(a.getStatus()))
+                .collect(java.util.stream.Collectors.toList());
+
+        if (activeAssignments.isEmpty()) {
+            return;
+        }
+
+        if (assignmentIdToIgnore == null) {
             throw new IllegalArgumentException("Task already has an active assignment");
+        }
+
+        TaskAssignment targetAssignment = taskAssignmentRepository.findById(assignmentIdToIgnore)
+                .orElse(null);
+        if (targetAssignment == null) {
+            throw new IllegalArgumentException("Assignment to update not found");
+        }
+
+        Long parentId = targetAssignment.getParentAssignment() != null
+                ? targetAssignment.getParentAssignment().getId()
+                : targetAssignment.getId();
+
+        boolean hasOutsideActive = activeAssignments.stream()
+                .anyMatch(a -> {
+                    if (a.getId().equals(assignmentIdToIgnore)) {
+                        return false;
+                    }
+                    Long otherParentId = a.getParentAssignment() != null
+                            ? a.getParentAssignment().getId()
+                            : a.getId();
+                    return !otherParentId.equals(parentId);
+                });
+
+        if (hasOutsideActive) {
+            throw new IllegalArgumentException("Task already has an active assignment from another developer or team");
         }
     }
 
