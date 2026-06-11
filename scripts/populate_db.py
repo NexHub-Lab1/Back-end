@@ -97,6 +97,22 @@ def login_user(email, password):
         print(f" -> ERROR logging in: {res.get('message')}")
         return None, None
 
+def activate_all_users_in_db():
+    print("Temporarily activating all users in DB to allow login...")
+    sql = "UPDATE users SET status = 'active';"
+    try:
+        cmd = ["docker", "compose", "exec", "-T", "db", "psql", "-U", DB_USER, "-d", DB_NAME, "-c", sql]
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
+        if result.returncode == 0:
+            print(" -> All users activated temporarily in DB.")
+            return True
+        else:
+            print(f" -> WARNING: could not activate users via SQL: {result.stderr.strip()}")
+            return False
+    except Exception as e:
+        print(f" -> ERROR activating users: {e}")
+        return False
+
 def update_user_db_fields(username, streak_day, status, reputation_score=0):
     print(f"Updating user '{username}' in DB: streak_day={streak_day}, status='{status}', reputation_score={reputation_score}...")
     sql = f"UPDATE users SET streak_day = {streak_day}, status = '{status}', reputation_score = {reputation_score} WHERE username = '{username}';"
@@ -132,7 +148,7 @@ def create_project(token, owner_id, name, description, github_repo, status, tags
         print(f" -> ERROR creating project '{name}': {res.get('message')}")
         return None
 
-def create_task(token, project_id, title, description, deliverables, reward_amount, reward_currency, deadline_days_ahead, max_attempts, skills, min_reputation=0):
+def create_task(token, project_id, title, description, deliverables, reward_amount, reward_currency, deadline_days_ahead, max_attempts, skills, min_reputation=0, collaborative=False):
     print(f"Creating task '{title}'...")
     deadline_date = (datetime.now() + timedelta(days=deadline_days_ahead)).strftime("%Y-%m-%d")
     payload = {
@@ -146,6 +162,7 @@ def create_task(token, project_id, title, description, deliverables, reward_amou
         "status": "OPEN",
         "maxAttempts": max_attempts,
         "minReputation": min_reputation,
+        "collaborative": collaborative,
         "recommendedSkills": skills
     }
     res = api_request("/api/tasks", method="POST", data=payload, token=token)
@@ -246,6 +263,10 @@ def main():
     for u in users_info:
         signup_user(u["username"], u["email"], u["password"])
         
+    print("\n----------------------------------------------------")
+    # Temporarily activate all users to ensure logins succeed on subsequent runs
+    activate_all_users_in_db()
+
     print("\n----------------------------------------------------")
     # 2. Login users and get tokens
     tokens = {}
@@ -504,6 +525,28 @@ def main():
         sub_h2 = submit_solution(tokens["hector"], ahector_id, "https://github.com/nexhub/ai-auditor/pull/15")
         if sub_h2:
             review_submission(tokens["alice"], sub_h2, "REJECTED", "Compile errors persist. Max attempts are reached, task is released/failed.", ids["alice"])
+
+    # D. Seed Collaborative Task scenario
+    print("\nSeeding collaborative task scenario...")
+    t10_id = create_task(
+        token=tokens["alice"],
+        project_id=p1_id,
+        title="Develop CI/CD GitHub Actions Pipeline",
+        description="Configure a robust GitHub Actions workflow that runs linting, tests, and builds the React Native application automatically on pull requests.",
+        deliverables="github workflow yml config file and successful action run logs.",
+        reward_amount=200.00,
+        reward_currency="USD",
+        deadline_days_ahead=25,
+        max_attempts=3,
+        skills=["github-actions", "ci-cd", "yaml"],
+        min_reputation=-500, # Open to all devs including negative reps
+        collaborative=True
+    )
+    if t10_id:
+        # David assigns himself to the collaborative task (Team 1)
+        assign_task(tokens["david"], t10_id, ids["david"], "david")
+        # Julia assigns herself to the collaborative task (Team 2)
+        assign_task(tokens["julia"], t10_id, ids["julia"], "julia")
 
     print("\n====================================================")
     print("          SEEDING COMPLETED SUCCESSFULLY!           ")
