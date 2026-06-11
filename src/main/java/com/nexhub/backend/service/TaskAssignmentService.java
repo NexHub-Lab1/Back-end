@@ -82,7 +82,7 @@ public class TaskAssignmentService {
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
 
         validateUserCanTakeTask(task, user);
-        validateTaskHasNoActiveAssignment(task.getId(), null);
+        validateTaskAssignmentLimit(task, user, null);
 
         TaskAssignment assignment = new TaskAssignment();
         assignment.setTask(task);
@@ -113,7 +113,7 @@ public class TaskAssignmentService {
         if (request.status() != null && !request.status().isBlank()) {
             String status = normalizeStatus(request.status());
             if (ACTIVE_STATUS.equals(status)) {
-                validateTaskHasNoActiveAssignment(assignment.getTask().getId(), assignment.getId());
+                validateTaskAssignmentLimit(assignment.getTask(), assignment.getUser(), assignment.getId());
             }
             assignment.setStatus(status);
         }
@@ -172,8 +172,8 @@ public class TaskAssignmentService {
         }
     }
 
-    private void validateTaskHasNoActiveAssignment(Long taskId, Long assignmentIdToIgnore) {
-        java.util.List<TaskAssignment> activeAssignments = taskAssignmentRepository.findByTask_Id(taskId).stream()
+    private void validateTaskAssignmentLimit(Task task, User user, Long assignmentIdToIgnore) {
+        java.util.List<TaskAssignment> activeAssignments = taskAssignmentRepository.findByTask_Id(task.getId()).stream()
                 .filter(a -> ACTIVE_STATUS.equalsIgnoreCase(a.getStatus()))
                 .collect(java.util.stream.Collectors.toList());
 
@@ -181,6 +181,18 @@ public class TaskAssignmentService {
             return;
         }
 
+        // If the task is collaborative, only restrict the same user from having multiple active assignments
+        if (Boolean.TRUE.equals(task.getCollaborative())) {
+            boolean userHasActive = activeAssignments.stream()
+                    .anyMatch(a -> a.getUser().getId().equals(user.getId())
+                            && (assignmentIdToIgnore == null || !a.getId().equals(assignmentIdToIgnore)));
+            if (userHasActive) {
+                throw new IllegalArgumentException("You already have an active assignment on this task");
+            }
+            return;
+        }
+
+        // If it is NOT collaborative, enforce standard single active assignment checks
         if (assignmentIdToIgnore == null) {
             throw new IllegalArgumentException("Task already has an active assignment");
         }

@@ -39,6 +39,8 @@ public record TaskUpdateRequest(
 
         Integer minReputation,
 
+        Boolean collaborative,
+
         Set<String> recommendedSkills
 ) {
 }

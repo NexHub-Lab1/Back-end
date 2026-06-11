@@ -43,6 +43,8 @@ public record TaskRequest(
 
         Integer minReputation,
 
+        Boolean collaborative,
+
         Set<String> recommendedSkills
 ) {
 }
