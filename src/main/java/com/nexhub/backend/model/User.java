@@ -69,8 +69,15 @@ public class User {
     private Integer streak_day;
 
     @Getter
-    @Setter
     private Integer reputation_score;
+
+    public void setReputation_score(Integer reputation_score) {
+        if (reputation_score == null) {
+            this.reputation_score = 0;
+        } else {
+            this.reputation_score = Math.max(-500, Math.min(1500, reputation_score));
+        }
+    }
 
     @Getter
     @Setter
@@ -124,10 +131,18 @@ public class User {
         if (status == null || status.isBlank()) {
             status = "active";
         }
+        if (reputation_score == null) {
+            reputation_score = 0;
+        } else {
+            reputation_score = Math.max(-500, Math.min(1500, reputation_score));
+        }
     }
 
     @PreUpdate
     void preUpdate() {
         updated_at = new Date(System.currentTimeMillis());
+        if (reputation_score != null) {
+            reputation_score = Math.max(-500, Math.min(1500, reputation_score));
+        }
     }
 }
