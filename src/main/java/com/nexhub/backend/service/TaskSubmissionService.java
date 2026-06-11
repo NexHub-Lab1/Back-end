@@ -180,6 +180,27 @@ public class TaskSubmissionService {
                 submission.setReviewedAt(now());
                 syncAssignmentStatusAfterStatusChange(submission, previousStatus, status);
 
+                User developer = submission.getUser();
+                if (APPROVED_STATUS.equals(status)) {
+                    int currentPoints = developer.getTotal_points() != null ? developer.getTotal_points() : 0;
+                    if (submission.getTask().getRewardAmount() != null) {
+                        developer.setTotal_points(currentPoints + submission.getTask().getRewardAmount().intValue());
+                    }
+                    int currentRep = developer.getReputation_score() != null ? developer.getReputation_score() : 0;
+                    developer.setReputation_score(currentRep + 15);
+                    int currentStreak = developer.getStreak_day() != null ? developer.getStreak_day() : 0;
+                    developer.setStreak_day(currentStreak + 1);
+                } else if (REJECTED_STATUS.equals(status)) {
+                    int currentRep = developer.getReputation_score() != null ? developer.getReputation_score() : 0;
+                    int penalty = 10;
+                    if ("SPAM_OR_LOW_EFFORT".equalsIgnoreCase(request.rejectionReason())) {
+                        penalty = 25;
+                        developer.setStreak_day(0);
+                    }
+                    developer.setReputation_score(currentRep - penalty);
+                }
+                userRepository.save(developer);
+
                 String type = "INFO";
                 String message = "Your submission for '" + submission.getTask().getTitle() + "' has been " + status;
                 if (APPROVED_STATUS.equals(status)) type = "SUCCESS";
@@ -234,6 +255,11 @@ public class TaskSubmissionService {
             throw new IllegalArgumentException("Assignment must be active to submit work");
         }
 
+        Task task = assignment.getTask();
+        if (task.getDeadline() != null && task.getDeadline().before(now())) {
+            throw new IllegalArgumentException("Cannot submit deliverable: the task deadline has already passed");
+        }
+
         int maxAttempts = maxAttemptsForTask(assignment.getTask());
         if (currentAttemptsUsed(assignment) >= maxAttempts) {
             throw new IllegalArgumentException("Assignment has reached the maximum number of attempts");
@@ -285,6 +311,17 @@ public class TaskSubmissionService {
 
         if (APPROVED_STATUS.equals(status)) {
             assignment.setStatus(COMPLETED_ASSIGNMENT_STATUS);
+            taskAssignmentRepository.save(assignment);
+            return;
+        }
+
+        if (REJECTED_STATUS.equals(status)) {
+            int maxAttempts = maxAttemptsForTask(submission.getTask());
+            if (submission.getAttemptsUsed() != null && submission.getAttemptsUsed() >= maxAttempts) {
+                assignment.setStatus("failed");
+            } else {
+                assignment.setStatus(ACTIVE_ASSIGNMENT_STATUS);
+            }
             taskAssignmentRepository.save(assignment);
             return;
         }

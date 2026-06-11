@@ -14,7 +14,9 @@ public record UserDetailsResponse(
         Integer streakDay,
         String image_url,
         Date last_active_at,
-        Date created_at
+        Date created_at,
+        Integer reputationScore,
+        Integer totalPoints
 ) {
     public static UserDetailsResponse fromUser(User user) {
         return new UserDetailsResponse(
@@ -31,7 +33,9 @@ public record UserDetailsResponse(
                 user.getStreak_day(),
                 user.getProfile_image_url(),
                 user.getLast_active_at(),
-                user.getCreated_at()
+                user.getCreated_at(),
+                user.getReputation_score() == null ? 0 : user.getReputation_score(),
+                user.getTotal_points() == null ? 0 : user.getTotal_points()
         );
     }
 }
