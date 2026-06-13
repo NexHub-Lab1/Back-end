@@ -12,6 +12,7 @@ import com.nexhub.backend.model.User;
 import com.nexhub.backend.service.AuthService;
 import com.nexhub.backend.service.GithubService;
 import com.nexhub.backend.utils.JwtUtils;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
@@ -44,7 +45,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> login(@Valid @RequestBody LoginRequest request) {
         try {
             User user = authService.login(request.email(), request.password());
             String token = jwtUtils.generateToken(user.getEmail());
@@ -60,7 +61,7 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<AuthUserResponse>> signup(@RequestBody AuthRequest request) {
+    public ResponseEntity<ApiResponse<AuthUserResponse>> signup(@Valid @RequestBody AuthRequest request) {
         System.out.println("Signup request: " + request);
         try {
             User user = authService.signup(request.username(), request.email(), request.password());
@@ -109,7 +110,7 @@ public class AuthController {
 
     @PostMapping("/updateaccount")
     public ResponseEntity<ApiResponse<Map<String, Object>>> updateAccount(
-            @RequestBody UpdateAccountRequest request,
+            @Valid @RequestBody UpdateAccountRequest request,
             Authentication authentication
     ) {
         try {
@@ -123,7 +124,8 @@ public class AuthController {
                     request.newUsername(),
                     request.newEmail(),
                     request.newPassword(),
-                    request.skills()
+                    request.skills(),
+                    request.emailNotificationsEnabled()
             );
 
             Map<String, Object> data = new HashMap<>();

@@ -16,56 +16,39 @@ import lombok.Setter;
 import java.sql.Date;
 
 @Entity
-@Table(name = "task_assignments")
-public class TaskAssignment {
-    @Getter
+@Table(name = "task_invitations")
+@Getter
+@Setter
+public class TaskInvitation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Getter
-    @Setter
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "task_id", nullable = false)
     private Task task;
 
-    @Getter
-    @Setter
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "sender_id", nullable = false)
+    private User sender;
 
-    @Getter
-    @Setter
-    @Column(name = "assigned_at", nullable = false)
-    private Date assignedAt;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "receiver_id", nullable = false)
+    private User receiver;
 
-    @Getter
-    @Setter
     @Column(nullable = false)
     private String status;
 
-    @Getter
-    @Setter
-    @Column(name = "attempts_used", nullable = false)
-    private Integer attemptsUsed;
-
-    @Getter
-    @Setter
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_assignment_id")
-    private TaskAssignment parentAssignment;
+    @Column(name = "created_at", nullable = false)
+    private Date createdAt;
 
     @PrePersist
     void prePersist() {
-        if (assignedAt == null) {
-            assignedAt = new Date(System.currentTimeMillis());
-        }
         if (status == null || status.isBlank()) {
-            status = "active";
+            status = "pending";
         }
-        if (attemptsUsed == null || attemptsUsed < 0) {
-            attemptsUsed = 0;
+        if (createdAt == null) {
+            createdAt = new Date(System.currentTimeMillis());
         }
     }
 }

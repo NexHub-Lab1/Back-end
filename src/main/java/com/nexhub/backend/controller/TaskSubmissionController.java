@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
 import java.util.NoSuchElementException;
 
 @RestController
@@ -100,7 +101,7 @@ public class TaskSubmissionController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<TaskSubmissionResponse>> create(@RequestBody TaskSubmissionRequest request) {
+    public ResponseEntity<ApiResponse<TaskSubmissionResponse>> create(@Valid @RequestBody TaskSubmissionRequest request) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("Task submission created correctly", taskSubmissionService.createSubmission(request)));
@@ -113,7 +114,7 @@ public class TaskSubmissionController {
 
     @PostMapping("/updatesubmission")
     public ResponseEntity<ApiResponse<TaskSubmissionResponse>> update(
-            @RequestBody TaskSubmissionUpdateRequest request,
+            @Valid @RequestBody TaskSubmissionUpdateRequest request,
             Authentication authentication
     ) {
         try {

@@ -11,7 +11,8 @@ public record AuthUserResponse(
         Integer githubId,
         String githubUsername,
         String profileImageUrl,
-        List<String> skills
+        List<String> skills,
+        Boolean emailNotificationsEnabled
 ) {
     public static AuthUserResponse fromUser(User user) {
         return new AuthUserResponse(
@@ -26,7 +27,8 @@ public record AuthUserResponse(
                         : user.getSkills().stream()
                         .map(tag -> tag.getName())
                         .sorted(String::compareToIgnoreCase)
-                        .toList()
+                        .toList(),
+                user.isEmailNotificationsEnabled()
         );
     }
 }

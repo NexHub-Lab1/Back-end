@@ -195,7 +195,8 @@ class AuthServiceTest {
                     "manuel",
                     "manuel@nexhub.dev",
                     "newsecurepass",
-                    null
+                    null,
+                    true
             );
 
             assertThat(updatedUser.getUsername()).isEqualTo("manuel");
@@ -224,7 +225,8 @@ class AuthServiceTest {
                     "manu",
                     "manu@nexhub.dev",
                     "",
-                    Set.of("React", "TypeScript")
+                    Set.of("React", "TypeScript"),
+                    true
             );
 
             assertThat(updatedUser.getSkills())

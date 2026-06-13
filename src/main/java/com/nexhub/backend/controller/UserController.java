@@ -26,7 +26,7 @@ public class UserController {
 
     //esto es despues de nexhub.com ....
     @PostMapping("/{id}")
-    public ApiResponse<AuthUserResponse> getUserById(Long id) {
+    public ApiResponse<AuthUserResponse> getUserById(@PathVariable Long id) {
         try {
             return new ApiResponse<>("success", "User found",
                     AuthUserResponse.fromUser(service.getUserById(id))

@@ -86,6 +86,8 @@ public class TaskService {
         task.setDeadline(request.deadline());
         task.setStatus(normalizeStatus(request.status()));
         task.setMaxAttempts(normalizeMaxAttempts(request.maxAttempts()));
+        task.setMinReputation(request.minReputation() != null ? request.minReputation() : 0);
+        task.setCollaborative(request.collaborative() != null ? request.collaborative() : false);
         task.setCreated_at(now());
         task.setUpdated_at(now());
         task.setRecommendedSkills(resolveTags(request.recommendedSkills()));
@@ -129,6 +131,12 @@ public class TaskService {
         }
         if (request.maxAttempts() != null) {
             task.setMaxAttempts(normalizeMaxAttempts(request.maxAttempts()));
+        }
+        if (request.minReputation() != null) {
+            task.setMinReputation(request.minReputation());
+        }
+        if (request.collaborative() != null) {
+            task.setCollaborative(request.collaborative());
         }
         if (request.recommendedSkills() != null) {
             task.setRecommendedSkills(resolveTags(request.recommendedSkills()));

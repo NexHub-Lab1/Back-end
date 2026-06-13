@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.NoSuchElementException;
 
 @RestController
@@ -64,7 +65,7 @@ public class TaskController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<TaskResponse>> create(@RequestBody TaskRequest request) {
+    public ResponseEntity<ApiResponse<TaskResponse>> create(@Valid @RequestBody TaskRequest request) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("Task created correctly", taskService.createTask(request)));
@@ -98,7 +99,7 @@ public class TaskController {
     }
 
     @PostMapping("/updatetask")
-    public ResponseEntity<ApiResponse<TaskResponse>> update(@RequestBody TaskUpdateRequest request) {
+    public ResponseEntity<ApiResponse<TaskResponse>> update(@Valid @RequestBody TaskUpdateRequest request) {
         try {
             return ResponseEntity.ok(ApiResponse.success("Updated correctly", taskService.updateTask(request)));
         } catch (NoSuchElementException e) {

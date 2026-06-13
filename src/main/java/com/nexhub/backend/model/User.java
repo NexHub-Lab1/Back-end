@@ -13,6 +13,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -74,8 +75,15 @@ public class User {
     private Integer streak_day;
 
     @Getter
-    @Setter
     private Integer reputation_score;
+
+    public void setReputation_score(Integer reputation_score) {
+        if (reputation_score == null) {
+            this.reputation_score = 0;
+        } else {
+            this.reputation_score = Math.max(-500, Math.min(1500, reputation_score));
+        }
+    }
 
     @Getter
     @Setter
@@ -99,6 +107,11 @@ public class User {
     @Setter
     private Date last_active_at;
 
+    @Getter
+    @Setter
+    private boolean emailNotificationsEnabled = true;
+
+    @JsonIgnore
     @Getter
     @Setter
     @OneToMany(fetch = FetchType.LAZY)
@@ -140,6 +153,11 @@ public class User {
         if (escrowBalance == null) {
             escrowBalance = BigDecimal.ZERO;
         }
+        if (reputation_score == null) {
+            reputation_score = 0;
+        } else {
+            reputation_score = Math.max(-500, Math.min(1500, reputation_score));
+        }
     }
 
     @PreUpdate
@@ -150,6 +168,9 @@ public class User {
         }
         if (escrowBalance == null) {
             escrowBalance = BigDecimal.ZERO;
+        }
+        if (reputation_score != null) {
+            reputation_score = Math.max(-500, Math.min(1500, reputation_score));
         }
     }
 }

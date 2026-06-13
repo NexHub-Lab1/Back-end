@@ -19,8 +19,10 @@ public record TaskResponse(
         String status,
         String fundingStatus,
         Integer maxAttempts,
+        Integer minReputation,
         Date createdAt,
         Date updatedAt,
+        Boolean collaborative,
         List<String> recommendedSkills
 ) {
     public static TaskResponse fromTask(Task task) {
@@ -39,8 +41,10 @@ public record TaskResponse(
                         ? "unfunded"
                         : task.getFundingStatus(),
                 task.getMaxAttempts(),
+                task.getMinReputation() != null ? task.getMinReputation() : 0,
                 task.getCreated_at(),
                 task.getUpdated_at(),
+                Boolean.TRUE.equals(task.getCollaborative()),
                 task.getRecommendedSkills() == null
                         ? List.of()
                         : task.getRecommendedSkills().stream()
