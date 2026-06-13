@@ -1,0 +1,136 @@
+package com.nexhub.backend.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.math.BigDecimal;
+import java.sql.Date;
+
+@Entity
+@Table(name = "payments")
+public class Payment {
+    @Getter
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Getter
+    @Setter
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "task_id", nullable = false)
+    private Task task;
+
+    @Getter
+    @Setter
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "payer_id", nullable = false)
+    private User payer;
+
+    @Getter
+    @Setter
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal amount;
+
+    @Getter
+    @Setter
+    @Column(nullable = false, length = 10)
+    private String currency;
+
+    @Getter
+    @Setter
+    @Column(nullable = false)
+    private String provider;
+
+    @Getter
+    @Setter
+    @Column(name = "provider_preference_id")
+    private String providerPreferenceId;
+
+    @Getter
+    @Setter
+    @Column(name = "provider_payment_id")
+    private String providerPaymentId;
+
+    @Getter
+    @Setter
+    @Column(name = "external_reference", nullable = false, unique = true)
+    private String externalReference;
+
+    @Getter
+    @Setter
+    @Column(name = "checkout_url", length = 500)
+    private String checkoutUrl;
+
+    @Getter
+    @Setter
+    @Column(nullable = false)
+    private String status;
+
+    @Getter
+    @Setter
+    @Column(name = "failure_reason", columnDefinition = "TEXT")
+    private String failureReason;
+
+    @Getter
+    @Setter
+    @Column(name = "created_at", nullable = false)
+    private Date createdAt;
+
+    @Getter
+    @Setter
+    @Column(name = "updated_at", nullable = false)
+    private Date updatedAt;
+
+    @Getter
+    @Setter
+    @Column(name = "approved_at")
+    private Date approvedAt;
+
+    @Getter
+    @Setter
+    @Column(name = "failed_at")
+    private Date failedAt;
+
+    @Getter
+    @Setter
+    @Column(name = "released_at")
+    private Date releasedAt;
+
+    @Getter
+    @Setter
+    @Column(name = "refunded_at")
+    private Date refundedAt;
+
+    @PrePersist
+    void prePersist() {
+        Date now = new Date(System.currentTimeMillis());
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+        if (status == null || status.isBlank()) {
+            status = "pending";
+        }
+        if (provider == null || provider.isBlank()) {
+            provider = "mercadopago_checkout_pro";
+        }
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = new Date(System.currentTimeMillis());
+    }
+}

@@ -17,6 +17,7 @@ public record TaskResponse(
         String rewardCurrency,
         Date deadline,
         String status,
+        String fundingStatus,
         Integer maxAttempts,
         Integer minReputation,
         Date createdAt,
@@ -36,6 +37,9 @@ public record TaskResponse(
                 task.getRewardCurrency(),
                 task.getDeadline(),
                 task.getStatus(),
+                task.getFundingStatus() == null || task.getFundingStatus().isBlank()
+                        ? "unfunded"
+                        : task.getFundingStatus(),
                 task.getMaxAttempts(),
                 task.getMinReputation() != null ? task.getMinReputation() : 0,
                 task.getCreated_at(),

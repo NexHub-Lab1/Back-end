@@ -29,6 +29,7 @@ public class TaskAssignmentService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final PaymentService paymentService;
 
     @Transactional(readOnly = true)
     public PagedResponse<TaskAssignmentResponse> getAllAssignments(Pageable pageable) {
@@ -81,6 +82,7 @@ public class TaskAssignmentService {
         User user = userRepository.findById(request.userId())
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
 
+        paymentService.validateTaskCanReceiveWork(task);
         validateUserCanTakeTask(task, user);
         validateTaskAssignmentLimit(task, user, null);
 

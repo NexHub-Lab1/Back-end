@@ -12,6 +12,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -112,9 +113,15 @@ public class TaskSubmissionController {
     }
 
     @PostMapping("/updatesubmission")
-    public ResponseEntity<ApiResponse<TaskSubmissionResponse>> update(@Valid @RequestBody TaskSubmissionUpdateRequest request) {
+    public ResponseEntity<ApiResponse<TaskSubmissionResponse>> update(
+            @Valid @RequestBody TaskSubmissionUpdateRequest request,
+            Authentication authentication
+    ) {
         try {
-            return ResponseEntity.ok(ApiResponse.success("Task submission updated correctly", taskSubmissionService.updateSubmission(request)));
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Task submission updated correctly",
+                    taskSubmissionService.updateSubmission(request, authentication.getName())
+            ));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         } catch (IllegalArgumentException e) {

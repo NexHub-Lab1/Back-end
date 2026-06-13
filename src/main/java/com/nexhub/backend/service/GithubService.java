@@ -36,7 +36,9 @@ public class GithubService {
     private static final String GITHUB_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token";
     private static final String GITHUB_USER_URL = "https://api.github.com/user";
     private static final String GITHUB_USER_EMAILS_URL = "https://api.github.com/user/emails";
+    private static final String GITHUB_AUTHENTICATED_USER_REPOS_URL = "https://api.github.com/user/repos?sort=updated&per_page=100";
     private static final String GITHUB_USER_REPOS_URL_TEMPLATE = "https://api.github.com/users/%s/repos?sort=updated&per_page=100";
+    private static final String GITHUB_USER_AGENT = "NexHub";
 
     private final UserRepository userRepository;
     private final JwtUtils jwtUtils;
@@ -56,7 +58,7 @@ public class GithubService {
         String state = jwtUtils.generateStateToken("github-oauth");
         String query = "client_id=" + encode(clientId)
                 + "&redirect_uri=" + encode(redirectUri)
-                + "&scope=" + encode("read:user user:email")
+                + "&scope=" + encode("read:user user:email public_repo")
                 + "&state=" + encode(state);
         return GITHUB_AUTHORIZE_URL + "?" + query;
     }
@@ -72,7 +74,7 @@ public class GithubService {
         String accessToken = exchangeCodeForAccessToken(code);
         GithubUserProfile githubUser = fetchGithubUser(accessToken);
         String email = fetchPrimaryEmail(accessToken, githubUser);
-        GithubUserLogin githubUserLogin = loginOrCreateGithubUser(githubUser, email);
+        GithubUserLogin githubUserLogin = loginOrCreateGithubUser(githubUser, email, accessToken);
 
         return new GithubLoginResult(
                 githubUserLogin.user(),
@@ -90,12 +92,7 @@ public class GithubService {
             throw new IllegalArgumentException("GitHub account is not connected");
         }
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format(GITHUB_USER_REPOS_URL_TEMPLATE, encodePathSegment(user.getGithub_username()))))
-                .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
-                .header("X-GitHub-Api-Version", "2022-11-28")
-                .GET()
-                .build();
+        HttpRequest request = buildRepositoriesRequest(user);
 
         HttpResponse<String> response = send(request);
         if (response.statusCode() >= 400) {
@@ -132,6 +129,7 @@ public class GithubService {
                 .uri(URI.create(GITHUB_ACCESS_TOKEN_URL))
                 .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                .header(HttpHeaders.USER_AGENT, GITHUB_USER_AGENT)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
@@ -157,6 +155,7 @@ public class GithubService {
                 .uri(URI.create(GITHUB_USER_URL))
                 .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .header(HttpHeaders.USER_AGENT, GITHUB_USER_AGENT)
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .GET()
                 .build();
@@ -188,6 +187,7 @@ public class GithubService {
                 .uri(URI.create(GITHUB_USER_EMAILS_URL))
                 .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .header(HttpHeaders.USER_AGENT, GITHUB_USER_AGENT)
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .GET()
                 .build();
@@ -211,7 +211,7 @@ public class GithubService {
         }
     }
 
-    private GithubUserLogin loginOrCreateGithubUser(GithubUserProfile githubUser, String email) {
+    private GithubUserLogin loginOrCreateGithubUser(GithubUserProfile githubUser, String email, String accessToken) {
         if (githubUser.id() == null || githubUser.login() == null || githubUser.login().isBlank()) {
             throw new IllegalArgumentException("Incomplete GitHub user profile");
         }
@@ -235,6 +235,7 @@ public class GithubService {
 
         user.setGithub_id(githubUser.id());
         user.setGithub_username(githubUser.login());
+        user.setGithub_access_token(accessToken);
         user.setProfile_image_url(githubUser.avatarUrl());
         user.setLast_active_at(new Date(System.currentTimeMillis()));
         user.setUpdated_at(new Date(System.currentTimeMillis()));
@@ -244,6 +245,26 @@ public class GithubService {
         }
 
         return new GithubUserLogin(userRepository.save(user), firstGithubLogin);
+    }
+
+    private HttpRequest buildRepositoriesRequest(User user) {
+        String accessToken = user.getGithub_access_token();
+        URI uri = accessToken == null || accessToken.isBlank()
+                ? URI.create(String.format(GITHUB_USER_REPOS_URL_TEMPLATE, encodePathSegment(user.getGithub_username())))
+                : URI.create(GITHUB_AUTHENTICATED_USER_REPOS_URL);
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(uri)
+                .header(HttpHeaders.ACCEPT, "application/vnd.github+json")
+                .header(HttpHeaders.USER_AGENT, GITHUB_USER_AGENT)
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .GET();
+
+        if (accessToken != null && !accessToken.isBlank()) {
+            builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
+        }
+
+        return builder.build();
     }
 
     private String resolveUniqueUsername(String baseUsername) {

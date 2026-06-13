@@ -1,6 +1,7 @@
 package com.nexhub.backend.model;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -16,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -54,6 +56,10 @@ public class User {
 
     @Getter
     @Setter
+    private String github_access_token;
+
+    @Getter
+    @Setter
     private String profile_image_url;
 
     @Getter
@@ -78,6 +84,16 @@ public class User {
             this.reputation_score = Math.max(-500, Math.min(1500, reputation_score));
         }
     }
+
+    @Getter
+    @Setter
+    @Column(name = "available_balance", precision = 12, scale = 2)
+    private BigDecimal availableBalance;
+
+    @Getter
+    @Setter
+    @Column(name = "escrow_balance", precision = 12, scale = 2)
+    private BigDecimal escrowBalance;
 
     @Getter
     @Setter
@@ -131,6 +147,12 @@ public class User {
         if (status == null || status.isBlank()) {
             status = "active";
         }
+        if (availableBalance == null) {
+            availableBalance = BigDecimal.ZERO;
+        }
+        if (escrowBalance == null) {
+            escrowBalance = BigDecimal.ZERO;
+        }
         if (reputation_score == null) {
             reputation_score = 0;
         } else {
@@ -141,6 +163,12 @@ public class User {
     @PreUpdate
     void preUpdate() {
         updated_at = new Date(System.currentTimeMillis());
+        if (availableBalance == null) {
+            availableBalance = BigDecimal.ZERO;
+        }
+        if (escrowBalance == null) {
+            escrowBalance = BigDecimal.ZERO;
+        }
         if (reputation_score != null) {
             reputation_score = Math.max(-500, Math.min(1500, reputation_score));
         }

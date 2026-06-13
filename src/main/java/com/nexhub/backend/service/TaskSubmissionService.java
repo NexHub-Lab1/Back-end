@@ -44,6 +44,7 @@ public class TaskSubmissionService {
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final PaymentService paymentService;
 
     @Transactional(readOnly = true)
     public PagedResponse<TaskSubmissionResponse> getAllSubmissions(Pageable pageable) {
@@ -148,7 +149,7 @@ public class TaskSubmissionService {
         return TaskSubmissionResponse.fromTaskSubmission(savedSubmission);
     }
 
-    public TaskSubmissionResponse updateSubmission(TaskSubmissionUpdateRequest request) {
+    public TaskSubmissionResponse updateSubmission(TaskSubmissionUpdateRequest request, String authenticatedEmail) {
         if (request == null || request.id() == null) {
             throw new IllegalArgumentException("Submission id is required");
         }
@@ -167,6 +168,7 @@ public class TaskSubmissionService {
 
         if (request.status() != null && !request.status().isBlank()) {
             String status = normalizeStatus(request.status());
+            validateApprovedSubmissionCannotBeReopened(previousStatus, status);
             submission.setStatus(status);
 
             if (SUBMITTED_STATUS.equals(status)) {
@@ -174,11 +176,14 @@ public class TaskSubmissionService {
                 submission.setReviewedAt(null);
                 syncAssignmentStatusAfterStatusChange(submission, previousStatus, status);
             } else if (isReviewStatus(status)) {
-                User reviewer = findReviewer(request.reviewerId());
+                User reviewer = findAuthenticatedReviewer(authenticatedEmail);
                 validateReviewerOwnsProject(reviewer, submission);
                 submission.setReviewer(reviewer);
                 submission.setReviewedAt(now());
                 syncAssignmentStatusAfterStatusChange(submission, previousStatus, status);
+                if (APPROVED_STATUS.equals(status) && !APPROVED_STATUS.equalsIgnoreCase(previousStatus)) {
+                    paymentService.releaseRewardForApprovedSubmission(submission);
+                }
 
                 User developer = submission.getUser();
                 if (APPROVED_STATUS.equals(status)) {
@@ -254,6 +259,7 @@ public class TaskSubmissionService {
         if (!ACTIVE_ASSIGNMENT_STATUS.equalsIgnoreCase(assignment.getStatus())) {
             throw new IllegalArgumentException("Assignment must be active to submit work");
         }
+        paymentService.validateTaskCanReceiveWork(assignment.getTask());
 
         Task task = assignment.getTask();
         if (task.getDeadline() != null && task.getDeadline().before(now())) {
@@ -285,12 +291,12 @@ public class TaskSubmissionService {
         }
     }
 
-    private User findReviewer(Long reviewerId) {
-        if (reviewerId == null) {
-            throw new IllegalArgumentException("Reviewer id is required");
+    private User findAuthenticatedReviewer(String authenticatedEmail) {
+        if (authenticatedEmail == null || authenticatedEmail.isBlank()) {
+            throw new IllegalArgumentException("Authenticated reviewer is required");
         }
 
-        return userRepository.findById(reviewerId)
+        return userRepository.findByEmail(authenticatedEmail)
                 .orElseThrow(() -> new NoSuchElementException("Reviewer not found"));
     }
 
@@ -336,6 +342,12 @@ public class TaskSubmissionService {
         return APPROVED_STATUS.equals(status)
                 || REJECTED_STATUS.equals(status)
                 || CHANGES_REQUESTED_STATUS.equals(status);
+    }
+
+    private void validateApprovedSubmissionCannotBeReopened(String previousStatus, String status) {
+        if (APPROVED_STATUS.equalsIgnoreCase(previousStatus) && !APPROVED_STATUS.equals(status)) {
+            throw new IllegalArgumentException("Approved submissions cannot be changed because the reward has already been released");
+        }
     }
 
     private String normalizeStatus(String status) {
