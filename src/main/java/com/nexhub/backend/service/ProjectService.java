@@ -33,6 +33,7 @@ public class ProjectService {
     private final UserRepository userRepository;
     private final TagRepository tagRepository;
     private final TaskRepository taskRepository;
+    private final GithubWebhookService githubWebhookService;
 
     @Transactional(readOnly = true)
     public PagedResponse<ProjectResponse> getAllProjects(String search, String status, Pageable pageable) {
@@ -77,7 +78,9 @@ public class ProjectService {
         project.setStars_count(0L);
         project.setTags(resolveTags(request.tags()));
 
-        return ProjectResponse.fromProject(projectRepository.save(project));
+        Project savedProject = projectRepository.save(project);
+        Project webhookProject = githubWebhookService.ensureProjectWebhook(savedProject);
+        return ProjectResponse.fromProject(webhookProject == null ? savedProject : webhookProject);
     }
 
     public ProjectResponse updateProject(ProjectUpdateRequest request) {
@@ -93,6 +96,7 @@ public class ProjectService {
         if (request.description() != null && !request.description().isBlank()) {
             project.setDescription(request.description().trim());
         }
+        String previousGithubRepo = project.getGithubRepo();
         if (request.githubRepo() != null && !request.githubRepo().isBlank()) {
             project.setGithubRepo(request.githubRepo().trim());
         }
@@ -106,7 +110,13 @@ public class ProjectService {
         validateProjectFields(project.getName(), project.getDescription(), project.getGithubRepo());
         project.setUpdated_at(now());
 
-        return ProjectResponse.fromProject(projectRepository.save(project));
+        Project savedProject = projectRepository.save(project);
+        if (hasGithubRepoChanged(previousGithubRepo, savedProject.getGithubRepo())) {
+            Project webhookProject = githubWebhookService.ensureProjectWebhook(savedProject);
+            savedProject = webhookProject == null ? savedProject : webhookProject;
+        }
+
+        return ProjectResponse.fromProject(savedProject);
     }
 
     public ProjectResponse addStar(Long id) {
@@ -174,6 +184,13 @@ public class ProjectService {
 
     private boolean isGithubRepositoryUrl(String githubRepo) {
         return GITHUB_REPOSITORY_URL_PATTERN.matcher(githubRepo.trim()).matches();
+    }
+
+    private boolean hasGithubRepoChanged(String previousGithubRepo, String nextGithubRepo) {
+        if (previousGithubRepo == null) {
+            return nextGithubRepo != null;
+        }
+        return nextGithubRepo != null && !previousGithubRepo.trim().equalsIgnoreCase(nextGithubRepo.trim());
     }
 
     private String normalizeStatus(String status) {
