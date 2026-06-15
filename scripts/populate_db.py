@@ -7,8 +7,6 @@ import subprocess
 import os
 from datetime import datetime, timedelta
 
-BASE_URL = "http://localhost:8080"
-
 # Dynamically resolve project root path
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
@@ -34,8 +32,13 @@ def load_env():
 
 # Load environment variables
 ENV = load_env()
-DB_USER = ENV.get("DB_USER", "postgres")
-DB_NAME = ENV.get("DB_NAME", "nexhub_db")
+BASE_URL = os.environ.get("NEXHUB_BASE_URL", ENV.get("NEXHUB_BASE_URL", "http://localhost:8080")).rstrip("/")
+DB_USER = os.environ.get("DB_USER", ENV.get("DB_USER", "postgres"))
+DB_NAME = os.environ.get("DB_NAME", ENV.get("DB_NAME", "nexhub_db"))
+DIRECT_DB_UPDATES = os.environ.get(
+    "NEXHUB_DIRECT_DB_UPDATES",
+    ENV.get("NEXHUB_DIRECT_DB_UPDATES", "true")
+).lower() in ("1", "true", "yes", "y")
 
 def api_request(path, method="POST", data=None, token=None):
     url = f"{BASE_URL}{path}"
@@ -98,6 +101,10 @@ def login_user(email, password):
         return None, None
 
 def activate_all_users_in_db():
+    if not DIRECT_DB_UPDATES:
+        print("Skipping direct DB user activation; NEXHUB_DIRECT_DB_UPDATES=false.")
+        return True
+
     print("Temporarily activating all users in DB to allow login...")
     sql = "UPDATE users SET status = 'active';"
     try:
@@ -114,6 +121,10 @@ def activate_all_users_in_db():
         return False
 
 def update_user_db_fields(username, streak_day, status, reputation_score=0):
+    if not DIRECT_DB_UPDATES:
+        print(f"Skipping direct DB update for user '{username}'; NEXHUB_DIRECT_DB_UPDATES=false.")
+        return True
+
     print(f"Updating user '{username}' in DB: streak_day={streak_day}, status='{status}', reputation_score={reputation_score}...")
     sql = f"UPDATE users SET streak_day = {streak_day}, status = '{status}', reputation_score = {reputation_score} WHERE username = '{username}';"
     try:
@@ -240,6 +251,8 @@ def main():
     print("====================================================")
     print("            NEXHUB DATABASE SEEDING SCRIPT          ")
     print("====================================================")
+    print(f"Target backend: {BASE_URL}")
+    print(f"Direct DB updates: {'enabled' if DIRECT_DB_UPDATES else 'disabled'}")
 
     # 1. Register Users
     users_info = [
