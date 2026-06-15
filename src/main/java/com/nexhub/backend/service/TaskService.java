@@ -7,9 +7,11 @@ import com.nexhub.backend.dto.task.TaskUpdateRequest;
 import com.nexhub.backend.model.Project;
 import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.Task;
+import com.nexhub.backend.model.TaskInvitation;
 import com.nexhub.backend.repository.ProjectRepository;
 import com.nexhub.backend.repository.TagRepository;
 import com.nexhub.backend.repository.TaskAssignmentRepository;
+import com.nexhub.backend.repository.TaskInvitationRepository;
 import com.nexhub.backend.repository.TaskRepository;
 import com.nexhub.backend.repository.TaskSubmissionRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
@@ -32,6 +35,7 @@ public class TaskService {
     private final TagRepository tagRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskSubmissionRepository taskSubmissionRepository;
+    private final TaskInvitationRepository taskInvitationRepository;
     private final PaymentService paymentService;
 
     @Transactional(readOnly = true)
@@ -156,6 +160,12 @@ public class TaskService {
         }
         if (paymentService.taskHasPaymentHistory(task)) {
             throw new IllegalArgumentException("Task has payment history and cannot be deleted. Cancel it instead.");
+        }
+
+        // Delete associated task invitations to prevent foreign key violations
+        List<TaskInvitation> invitations = taskInvitationRepository.findByTaskId(task.getId());
+        if (!invitations.isEmpty()) {
+            taskInvitationRepository.deleteAll(invitations);
         }
 
         TaskResponse response = TaskResponse.fromTask(task);
