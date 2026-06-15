@@ -146,7 +146,35 @@ def update_user_db_fields(username, streak_day, status, reputation_score=0):
         print(f" -> ERROR executing subprocess: {e}")
         return False
 
+def paginated_content(res):
+    data = res.get("data") if isinstance(res, dict) else None
+    if isinstance(data, dict) and isinstance(data.get("content"), list):
+        return data["content"]
+    return []
+
+def find_project_by_name(name):
+    res = api_request("/api/projects?size=200", method="GET")
+    for project in paginated_content(res):
+        if str(project.get("name", "")).lower() == name.lower():
+            return project.get("id")
+    return None
+
+def find_task_by_project_and_title(project_id, title):
+    if not project_id:
+        return None
+
+    res = api_request(f"/api/tasks/project/{project_id}?size=200", method="GET")
+    for task in paginated_content(res):
+        if str(task.get("title", "")).lower() == title.lower():
+            return task.get("id")
+    return None
+
 def create_project(token, owner_id, name, description, github_repo, status, tags):
+    existing_project_id = find_project_by_name(name)
+    if existing_project_id:
+        print(f"Project '{name}' already exists with ID: {existing_project_id}. Reusing it.")
+        return existing_project_id
+
     print(f"Creating project '{name}' ({status})...")
     payload = {
         "ownerId": owner_id,
@@ -166,6 +194,11 @@ def create_project(token, owner_id, name, description, github_repo, status, tags
         return None
 
 def create_task(token, project_id, title, description, deliverables, reward_amount, reward_currency, deadline_days_ahead, max_attempts, skills, min_reputation=0, collaborative=False):
+    existing_task_id = find_task_by_project_and_title(project_id, title)
+    if existing_task_id:
+        print(f"Task '{title}' already exists with ID: {existing_task_id}. Reusing it.")
+        return existing_task_id
+
     print(f"Creating task '{title}'...")
     deadline_date = (datetime.now() + timedelta(days=deadline_days_ahead)).strftime("%Y-%m-%d")
     payload = {
