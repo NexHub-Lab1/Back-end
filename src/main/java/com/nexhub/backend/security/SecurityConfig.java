@@ -32,6 +32,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/tasks", "/api/tasks/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/all_users_details", "/api/users/details/**", "/api/users/followed/**", "/api/users/followers/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhooks/mercadopago").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/github/webhooks").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )

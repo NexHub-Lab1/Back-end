@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,6 +30,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     @EntityGraph(attributePaths = {"owner"})
     Page<Project> findAll(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"owner"})
+    @Query("select project from Project project where lower(project.githubRepo) in :githubRepos")
+    List<Project> findAllByGithubRepoNormalizedIn(@Param("githubRepos") Collection<String> githubRepos);
 
     boolean existsByOwner_Id(Long ownerId);
     boolean existsByContributors_Id(Long contributorId);

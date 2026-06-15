@@ -107,9 +107,20 @@ public class User {
     @Setter
     private Date last_active_at;
 
-    @Getter
-    @Setter
-    private boolean emailNotificationsEnabled = true;
+    @Column(name = "email_notifications_enabled")
+    private Boolean emailNotificationsEnabled = true;
+
+    public boolean isEmailNotificationsEnabled() {
+        return emailNotificationsEnabled == null || emailNotificationsEnabled;
+    }
+
+    public Boolean getEmailNotificationsEnabled() {
+        return isEmailNotificationsEnabled();
+    }
+
+    public void setEmailNotificationsEnabled(Boolean emailNotificationsEnabled) {
+        this.emailNotificationsEnabled = emailNotificationsEnabled == null || emailNotificationsEnabled;
+    }
 
     @JsonIgnore
     @Getter
@@ -158,6 +169,9 @@ public class User {
         } else {
             reputation_score = Math.max(-500, Math.min(1500, reputation_score));
         }
+        if (emailNotificationsEnabled == null) {
+            emailNotificationsEnabled = true;
+        }
     }
 
     @PreUpdate
@@ -171,6 +185,9 @@ public class User {
         }
         if (reputation_score != null) {
             reputation_score = Math.max(-500, Math.min(1500, reputation_score));
+        }
+        if (emailNotificationsEnabled == null) {
+            emailNotificationsEnabled = true;
         }
     }
 }

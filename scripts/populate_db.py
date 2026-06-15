@@ -5,9 +5,8 @@ import json
 import sys
 import subprocess
 import os
+import ssl
 from datetime import datetime, timedelta
-
-BASE_URL = "http://localhost:8080"
 
 # Dynamically resolve project root path
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -34,8 +33,18 @@ def load_env():
 
 # Load environment variables
 ENV = load_env()
-DB_USER = ENV.get("DB_USER", "postgres")
-DB_NAME = ENV.get("DB_NAME", "nexhub_db")
+BASE_URL = os.environ.get("NEXHUB_BASE_URL", ENV.get("NEXHUB_BASE_URL", "http://localhost:8080")).rstrip("/")
+DB_USER = os.environ.get("DB_USER", ENV.get("DB_USER", "postgres"))
+DB_NAME = os.environ.get("DB_NAME", ENV.get("DB_NAME", "nexhub_db"))
+DIRECT_DB_UPDATES = os.environ.get(
+    "NEXHUB_DIRECT_DB_UPDATES",
+    ENV.get("NEXHUB_DIRECT_DB_UPDATES", "true")
+).lower() in ("1", "true", "yes", "y")
+INSECURE_SSL = os.environ.get(
+    "NEXHUB_INSECURE_SSL",
+    ENV.get("NEXHUB_INSECURE_SSL", "false")
+).lower() in ("1", "true", "yes", "y")
+SSL_CONTEXT = ssl._create_unverified_context() if INSECURE_SSL else None
 
 def api_request(path, method="POST", data=None, token=None):
     url = f"{BASE_URL}{path}"
@@ -49,7 +58,7 @@ def api_request(path, method="POST", data=None, token=None):
         encoded_data = json.dumps(data).encode("utf-8")
         
     try:
-        with urllib.request.urlopen(req, data=encoded_data) as response:
+        with urllib.request.urlopen(req, data=encoded_data, context=SSL_CONTEXT) as response:
             res_body = response.read().decode("utf-8")
             if res_body:
                 return json.loads(res_body)
@@ -98,6 +107,10 @@ def login_user(email, password):
         return None, None
 
 def activate_all_users_in_db():
+    if not DIRECT_DB_UPDATES:
+        print("Skipping direct DB user activation; NEXHUB_DIRECT_DB_UPDATES=false.")
+        return True
+
     print("Temporarily activating all users in DB to allow login...")
     sql = "UPDATE users SET status = 'active';"
     try:
@@ -114,6 +127,10 @@ def activate_all_users_in_db():
         return False
 
 def update_user_db_fields(username, streak_day, status, reputation_score=0):
+    if not DIRECT_DB_UPDATES:
+        print(f"Skipping direct DB update for user '{username}'; NEXHUB_DIRECT_DB_UPDATES=false.")
+        return True
+
     print(f"Updating user '{username}' in DB: streak_day={streak_day}, status='{status}', reputation_score={reputation_score}...")
     sql = f"UPDATE users SET streak_day = {streak_day}, status = '{status}', reputation_score = {reputation_score} WHERE username = '{username}';"
     try:
@@ -129,7 +146,35 @@ def update_user_db_fields(username, streak_day, status, reputation_score=0):
         print(f" -> ERROR executing subprocess: {e}")
         return False
 
+def paginated_content(res):
+    data = res.get("data") if isinstance(res, dict) else None
+    if isinstance(data, dict) and isinstance(data.get("content"), list):
+        return data["content"]
+    return []
+
+def find_project_by_name(name):
+    res = api_request("/api/projects?size=200", method="GET")
+    for project in paginated_content(res):
+        if str(project.get("name", "")).lower() == name.lower():
+            return project.get("id")
+    return None
+
+def find_task_by_project_and_title(project_id, title):
+    if not project_id:
+        return None
+
+    res = api_request(f"/api/tasks/project/{project_id}?size=200", method="GET")
+    for task in paginated_content(res):
+        if str(task.get("title", "")).lower() == title.lower():
+            return task.get("id")
+    return None
+
 def create_project(token, owner_id, name, description, github_repo, status, tags):
+    existing_project_id = find_project_by_name(name)
+    if existing_project_id:
+        print(f"Project '{name}' already exists with ID: {existing_project_id}. Reusing it.")
+        return existing_project_id
+
     print(f"Creating project '{name}' ({status})...")
     payload = {
         "ownerId": owner_id,
@@ -149,6 +194,11 @@ def create_project(token, owner_id, name, description, github_repo, status, tags
         return None
 
 def create_task(token, project_id, title, description, deliverables, reward_amount, reward_currency, deadline_days_ahead, max_attempts, skills, min_reputation=0, collaborative=False):
+    existing_task_id = find_task_by_project_and_title(project_id, title)
+    if existing_task_id:
+        print(f"Task '{title}' already exists with ID: {existing_task_id}. Reusing it.")
+        return existing_task_id
+
     print(f"Creating task '{title}'...")
     deadline_date = (datetime.now() + timedelta(days=deadline_days_ahead)).strftime("%Y-%m-%d")
     payload = {
@@ -240,6 +290,9 @@ def main():
     print("====================================================")
     print("            NEXHUB DATABASE SEEDING SCRIPT          ")
     print("====================================================")
+    print(f"Target backend: {BASE_URL}")
+    print(f"Direct DB updates: {'enabled' if DIRECT_DB_UPDATES else 'disabled'}")
+    print(f"SSL verification: {'disabled' if INSECURE_SSL else 'enabled'}")
 
     # 1. Register Users
     users_info = [

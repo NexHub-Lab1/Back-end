@@ -1,7 +1,9 @@
 package com.nexhub.backend.service;
 
 import com.nexhub.backend.dto.github.GithubRepositoryResponse;
+import com.nexhub.backend.model.Project;
 import com.nexhub.backend.model.User;
+import com.nexhub.backend.repository.ProjectRepository;
 import com.nexhub.backend.repository.UserRepository;
 import com.nexhub.backend.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +43,8 @@ public class GithubService {
     private static final String GITHUB_USER_AGENT = "NexHub";
 
     private final UserRepository userRepository;
+    private final ProjectRepository projectRepository;
+    private final GithubWebhookService githubWebhookService;
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
     private final JsonParser jsonParser = JsonParserFactory.getJsonParser();
@@ -58,7 +62,7 @@ public class GithubService {
         String state = jwtUtils.generateStateToken("github-oauth");
         String query = "client_id=" + encode(clientId)
                 + "&redirect_uri=" + encode(redirectUri)
-                + "&scope=" + encode("read:user user:email public_repo")
+                + "&scope=" + encode("read:user user:email public_repo admin:repo_hook")
                 + "&state=" + encode(state);
         return GITHUB_AUTHORIZE_URL + "?" + query;
     }
@@ -75,6 +79,7 @@ public class GithubService {
         GithubUserProfile githubUser = fetchGithubUser(accessToken);
         String email = fetchPrimaryEmail(accessToken, githubUser);
         GithubUserLogin githubUserLogin = loginOrCreateGithubUser(githubUser, email, accessToken);
+        ensureOwnedProjectWebhooks(githubUserLogin.user());
 
         return new GithubLoginResult(
                 githubUserLogin.user(),
@@ -245,6 +250,22 @@ public class GithubService {
         }
 
         return new GithubUserLogin(userRepository.save(user), firstGithubLogin);
+    }
+
+    private void ensureOwnedProjectWebhooks(User user) {
+        if (user == null || user.getId() == null) {
+            return;
+        }
+
+        for (Project project : projectRepository.findByOwner_Id(user.getId())) {
+            if (project.getGithubRepo() == null || project.getGithubRepo().isBlank()) {
+                continue;
+            }
+            if ("connected".equalsIgnoreCase(project.getGithubWebhookStatus())) {
+                continue;
+            }
+            githubWebhookService.ensureProjectWebhook(project);
+        }
     }
 
     private HttpRequest buildRepositoriesRequest(User user) {

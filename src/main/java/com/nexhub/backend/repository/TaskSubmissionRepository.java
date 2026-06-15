@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.Optional;
+
 public interface TaskSubmissionRepository extends JpaRepository<TaskSubmission, Long> {
     boolean existsByTask_Id(Long taskId);
     boolean existsByUser_Id(Long userId);
@@ -39,5 +42,11 @@ public interface TaskSubmissionRepository extends JpaRepository<TaskSubmission, 
             @Param("reviewerId") Long reviewerId,
             @Param("status") String status,
             Pageable pageable
+    );
+
+    @EntityGraph(attributePaths = {"task", "task.project", "task.project.owner", "user", "assignment", "reviewer"})
+    @Query("select submission from TaskSubmission submission where lower(submission.pullRequestUrl) in :pullRequestUrls")
+    Optional<TaskSubmission> findFirstByPullRequestUrlNormalizedIn(
+            @Param("pullRequestUrls") Collection<String> pullRequestUrls
     );
 }

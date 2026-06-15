@@ -19,8 +19,50 @@ public record ProjectResponse(
         Long completedTasksCount,
         Long starsCount,
         int contributorCount,
-        List<String> tags
+        List<String> tags,
+        String githubWebhookStatus,
+        String githubWebhookLastError,
+        Date githubWebhookConnectedAt,
+        Date githubWebhookLastDeliveryAt
 ) {
+    public ProjectResponse(
+            Long id,
+            Long ownerId,
+            String ownerUsername,
+            String name,
+            String description,
+            String githubRepo,
+            String status,
+            Date createdAt,
+            Date updatedAt,
+            Date lastActiveAt,
+            Long completedTasksCount,
+            Long starsCount,
+            int contributorCount,
+            List<String> tags
+    ) {
+        this(
+                id,
+                ownerId,
+                ownerUsername,
+                name,
+                description,
+                githubRepo,
+                status,
+                createdAt,
+                updatedAt,
+                lastActiveAt,
+                completedTasksCount,
+                starsCount,
+                contributorCount,
+                tags,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
     public static ProjectResponse fromProject(Project project) {
         return new ProjectResponse(
                 project.getId(),
@@ -38,7 +80,11 @@ public record ProjectResponse(
                 project.getContributors() != null ? project.getContributors().size() : 0,
                 project.getTags() == null
                         ? List.of()
-                        : project.getTags().stream().map(tag -> tag.getName()).sorted(String::compareToIgnoreCase).toList()
+                        : project.getTags().stream().map(tag -> tag.getName()).sorted(String::compareToIgnoreCase).toList(),
+                project.getGithubWebhookStatus(),
+                project.getGithubWebhookLastError(),
+                project.getGithubWebhookConnectedAt(),
+                project.getGithubWebhookLastDeliveryAt()
         );
     }
 }
