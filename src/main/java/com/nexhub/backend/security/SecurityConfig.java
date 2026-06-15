@@ -30,6 +30,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/github/start", "/api/auth/github/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/projects", "/api/projects/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tasks", "/api/tasks/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/all_users_details", "/api/users/details/**", "/api/users/followed/**", "/api/users/followers/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhooks/mercadopago").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
