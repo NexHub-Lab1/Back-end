@@ -16,6 +16,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> findAllVisible(Pageable pageable);
 
     @EntityGraph(attributePaths = {"project"})
+    @Query("SELECT t FROM Task t WHERE " +
+           "(:search IS NULL OR :search = '' OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+           "((:status IS NULL OR :status = '') AND LOWER(t.status) <> 'cancelled' OR LOWER(t.status) = LOWER(:status))")
+    Page<Task> searchTasks(@Param("search") String search, @Param("status") String status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"project"})
     @Query("select task from Task task where task.project.id = :projectId")
     Page<Task> findByProjectId(@Param("projectId") Long projectId, Pageable pageable);
 

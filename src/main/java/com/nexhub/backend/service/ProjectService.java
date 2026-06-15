@@ -35,9 +35,9 @@ public class ProjectService {
     private final TaskRepository taskRepository;
 
     @Transactional(readOnly = true)
-    public PagedResponse<ProjectResponse> getAllProjects(Pageable pageable) {
+    public PagedResponse<ProjectResponse> getAllProjects(String search, String status, Pageable pageable) {
         return PagedResponse.fromPage(
-                projectRepository.findAll(pageable).map(ProjectResponse::fromProject)
+                projectRepository.searchProjects(search, status, pageable).map(ProjectResponse::fromProject)
         );
     }
 

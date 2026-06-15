@@ -35,9 +35,9 @@ public class TaskService {
     private final PaymentService paymentService;
 
     @Transactional(readOnly = true)
-    public PagedResponse<TaskResponse> getAllTasks(Pageable pageable) {
+    public PagedResponse<TaskResponse> getAllTasks(String search, String status, Pageable pageable) {
         return PagedResponse.fromPage(
-                taskRepository.findAllVisible(pageable).map(TaskResponse::fromTask)
+                taskRepository.searchTasks(search, status, pageable).map(TaskResponse::fromTask)
         );
     }
 

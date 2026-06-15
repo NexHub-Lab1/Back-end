@@ -24,9 +24,11 @@ public class ProjectController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PagedResponse<ProjectResponse>>> getAll(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
             @PageableDefault(size = 9) Pageable pageable
     ) {
-        return ResponseEntity.ok(ApiResponse.success("List of projects", projectService.getAllProjects(pageable)));
+        return ResponseEntity.ok(ApiResponse.success("List of projects", projectService.getAllProjects(search, status, pageable)));
     }
 
     @GetMapping("/{id}")

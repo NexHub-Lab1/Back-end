@@ -24,9 +24,11 @@ public class TaskController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<PagedResponse<TaskResponse>>> getAll(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
             @PageableDefault(size = 9) Pageable pageable
     ) {
-        return ResponseEntity.ok(ApiResponse.success("List of tasks", taskService.getAllTasks(pageable)));
+        return ResponseEntity.ok(ApiResponse.success("List of tasks", taskService.getAllTasks(search, status, pageable)));
     }
 
     @GetMapping("/owner/{ownerId}")
