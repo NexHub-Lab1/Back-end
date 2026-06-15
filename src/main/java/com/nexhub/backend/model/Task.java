@@ -83,7 +83,7 @@ public class Task {
 
     @Getter
     @Setter
-    @Column(name = "min_reputation", nullable = false)
+    @Column(name = "min_reputation")
     private Integer minReputation;
 
     @Getter
