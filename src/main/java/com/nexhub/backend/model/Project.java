@@ -1,6 +1,7 @@
 package com.nexhub.backend.model;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -49,6 +50,31 @@ public class Project {
     @Getter
     @Setter
     private String status;
+
+    @Getter
+    @Setter
+    @Column(name = "github_webhook_id")
+    private Long githubWebhookId;
+
+    @Getter
+    @Setter
+    @Column(name = "github_webhook_status")
+    private String githubWebhookStatus;
+
+    @Getter
+    @Setter
+    @Column(name = "github_webhook_last_error", columnDefinition = "TEXT")
+    private String githubWebhookLastError;
+
+    @Getter
+    @Setter
+    @Column(name = "github_webhook_connected_at")
+    private Date githubWebhookConnectedAt;
+
+    @Getter
+    @Setter
+    @Column(name = "github_webhook_last_delivery_at")
+    private Date githubWebhookLastDeliveryAt;
 
     @Getter
     @Setter

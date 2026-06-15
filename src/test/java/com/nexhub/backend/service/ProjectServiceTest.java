@@ -46,6 +46,9 @@ class ProjectServiceTest {
     @Mock
     private TaskRepository taskRepository;
 
+    @Mock
+    private GithubWebhookService githubWebhookService;
+
     @InjectMocks
     private ProjectService projectService;
 
@@ -67,6 +70,8 @@ class ProjectServiceTest {
                 setProjectId(project, 9L);
                 return project;
             });
+            when(githubWebhookService.ensureProjectWebhook(any(Project.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
 
             ProjectResponse response = projectService.createProject(new ProjectRequest(
                     7L,
@@ -83,6 +88,7 @@ class ProjectServiceTest {
             assertThat(response.starsCount()).isZero();
             assertThat(response.completedTasksCount()).isZero();
             assertThat(response.tags()).containsExactlyInAnyOrder("AI", "Open Source");
+            verify(githubWebhookService).ensureProjectWebhook(any(Project.class));
         }
     }
 
@@ -173,6 +179,7 @@ class ProjectServiceTest {
             when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
             when(tagRepository.findByNameIgnoreCase("Web3")).thenReturn(Optional.of(tag));
             when(projectRepository.save(project)).thenReturn(project);
+            when(githubWebhookService.ensureProjectWebhook(project)).thenReturn(project);
 
             ProjectResponse response = projectService.updateProject(new ProjectUpdateRequest(
                     1L,
