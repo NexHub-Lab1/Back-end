@@ -5,6 +5,7 @@ import json
 import sys
 import subprocess
 import os
+import ssl
 from datetime import datetime, timedelta
 
 # Dynamically resolve project root path
@@ -39,6 +40,11 @@ DIRECT_DB_UPDATES = os.environ.get(
     "NEXHUB_DIRECT_DB_UPDATES",
     ENV.get("NEXHUB_DIRECT_DB_UPDATES", "true")
 ).lower() in ("1", "true", "yes", "y")
+INSECURE_SSL = os.environ.get(
+    "NEXHUB_INSECURE_SSL",
+    ENV.get("NEXHUB_INSECURE_SSL", "false")
+).lower() in ("1", "true", "yes", "y")
+SSL_CONTEXT = ssl._create_unverified_context() if INSECURE_SSL else None
 
 def api_request(path, method="POST", data=None, token=None):
     url = f"{BASE_URL}{path}"
@@ -52,7 +58,7 @@ def api_request(path, method="POST", data=None, token=None):
         encoded_data = json.dumps(data).encode("utf-8")
         
     try:
-        with urllib.request.urlopen(req, data=encoded_data) as response:
+        with urllib.request.urlopen(req, data=encoded_data, context=SSL_CONTEXT) as response:
             res_body = response.read().decode("utf-8")
             if res_body:
                 return json.loads(res_body)
@@ -253,6 +259,7 @@ def main():
     print("====================================================")
     print(f"Target backend: {BASE_URL}")
     print(f"Direct DB updates: {'enabled' if DIRECT_DB_UPDATES else 'disabled'}")
+    print(f"SSL verification: {'disabled' if INSECURE_SSL else 'enabled'}")
 
     # 1. Register Users
     users_info = [
