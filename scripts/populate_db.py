@@ -6,6 +6,7 @@ import sys
 import subprocess
 import os
 import ssl
+import time
 from datetime import datetime, timedelta
 
 # Dynamically resolve project root path
@@ -50,32 +51,46 @@ NORMALIZE_EXISTING_TASK_CURRENCIES = os.environ.get(
     "NEXHUB_NORMALIZE_TASK_CURRENCIES",
     ENV.get("NEXHUB_NORMALIZE_TASK_CURRENCIES", "true")
 ).lower() in ("1", "true", "yes", "y")
+API_MAX_RETRIES = int(os.environ.get("NEXHUB_API_MAX_RETRIES", ENV.get("NEXHUB_API_MAX_RETRIES", "4")))
+TRANSIENT_HTTP_STATUS_CODES = {502, 503, 504}
 
 def api_request(path, method="POST", data=None, token=None):
     url = f"{BASE_URL}{path}"
-    req = urllib.request.Request(url, method=method)
-    req.add_header("Content-Type", "application/json")
-    if token:
-        req.add_header("Authorization", f"Bearer {token}")
-    
     encoded_data = None
     if data is not None:
         encoded_data = json.dumps(data).encode("utf-8")
-        
-    try:
-        with urllib.request.urlopen(req, data=encoded_data, context=SSL_CONTEXT) as response:
-            res_body = response.read().decode("utf-8")
-            if res_body:
-                return json.loads(res_body)
-            return {"status": "success", "message": "No content"}
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8")
+
+    for attempt in range(API_MAX_RETRIES + 1):
+        req = urllib.request.Request(url, method=method)
+        req.add_header("Content-Type", "application/json")
+        if token:
+            req.add_header("Authorization", f"Bearer {token}")
+
         try:
-            return json.loads(error_body)
-        except json.JSONDecodeError:
-            return {"status": "error", "message": f"HTTP Error {e.code}: {e.reason}", "raw": error_body}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+            with urllib.request.urlopen(req, data=encoded_data, context=SSL_CONTEXT) as response:
+                res_body = response.read().decode("utf-8")
+                if res_body:
+                    return json.loads(res_body)
+                return {"status": "success", "message": "No content"}
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            if e.code in TRANSIENT_HTTP_STATUS_CODES and attempt < API_MAX_RETRIES:
+                wait_seconds = min(2 * (attempt + 1), 10)
+                print(f" -> Transient HTTP {e.code} from {path}. Retrying in {wait_seconds}s...")
+                time.sleep(wait_seconds)
+                continue
+
+            try:
+                return json.loads(error_body)
+            except json.JSONDecodeError:
+                return {"status": "error", "message": f"HTTP Error {e.code}: {e.reason}", "raw": error_body}
+        except Exception as e:
+            if attempt < API_MAX_RETRIES:
+                wait_seconds = min(2 * (attempt + 1), 10)
+                print(f" -> Request error from {path}: {e}. Retrying in {wait_seconds}s...")
+                time.sleep(wait_seconds)
+                continue
+            return {"status": "error", "message": str(e)}
 
 def signup_user(username, email, password):
     print(f"Registering user: {username} ({email})...")
@@ -722,8 +737,14 @@ def main():
             tokens[u["username"]] = token
             ids[u["username"]] = user_id
             
-    if "alice" not in tokens or "bob" not in tokens or "grace" not in tokens:
-        print("ERROR: Could not fetch tokens for critical users. Seeding aborted.")
+    required_usernames = {
+        "alice", "bob", "charlie", "david", "elena", "grace",
+        "hector", "ivan", "julia", "mike", "nancy", "oscar"
+    }
+    missing_usernames = sorted(username for username in required_usernames if username not in tokens or username not in ids)
+    if missing_usernames:
+        print(f"ERROR: Could not fetch tokens for required users: {', '.join(missing_usernames)}. Seeding aborted.")
+        print("Try running the script again; Render free instances can return transient 502/503 responses while waking up.")
         sys.exit(1)
 
     print("\n----------------------------------------------------")
