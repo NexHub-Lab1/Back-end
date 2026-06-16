@@ -31,11 +31,11 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findFeaturedCandidates();
 
     @EntityGraph(attributePaths = {"project"})
-    @Query("select task from Task task where task.project.id = :projectId")
+    @Query("select task from Task task where task.project.id = :projectId and lower(task.status) <> 'cancelled'")
     Page<Task> findByProjectId(@Param("projectId") Long projectId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"project"})
-    @Query("select task from Task task where task.project.owner.id = :ownerId")
+    @Query("select task from Task task where task.project.owner.id = :ownerId and lower(task.status) <> 'cancelled'")
     Page<Task> findByProjectOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"project"})
