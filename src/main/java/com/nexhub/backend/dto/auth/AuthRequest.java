@@ -11,11 +11,11 @@ public record AuthRequest(
 
         @NotBlank(message = "El email es obligatorio")
         @Email(message = "El formato del email es inválido")
-        @Size(max = 255, message = "El email no puede superar los 255 caracteres")
+        @Size(max = 80, message = "El email no puede superar los 80 caracteres")
         String email,
 
         @NotBlank(message = "La contraseña es obligatoria")
-        @Size(min = 8, max = 100, message = "La contraseña debe tener al menos 8 caracteres")
+        @Size(min = 8, max = 40, message = "La contraseña debe tener entre 8 y 40 caracteres")
         String password
 ) {
 }

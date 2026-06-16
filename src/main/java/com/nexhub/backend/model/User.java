@@ -32,10 +32,12 @@ public class User {
 
     @Getter
     @Setter
+    @Column(length = 20, nullable = false, unique = true)
     private String username;
 
     @Getter
     @Setter
+    @Column(length = 80, nullable = false, unique = true)
     private String email;
 
     @Getter
