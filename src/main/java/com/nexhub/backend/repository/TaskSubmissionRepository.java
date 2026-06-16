@@ -15,6 +15,7 @@ public interface TaskSubmissionRepository extends JpaRepository<TaskSubmission, 
     boolean existsByTask_Id(Long taskId);
     boolean existsByUser_Id(Long userId);
     boolean existsByReviewer_Id(Long reviewerId);
+    boolean existsByTask_IdAndUser_Id(Long taskId, Long userId);
 
     @EntityGraph(attributePaths = {"task", "task.project", "user", "assignment", "reviewer"})
     @Query("select submission from TaskSubmission submission where submission.task.id = :taskId")

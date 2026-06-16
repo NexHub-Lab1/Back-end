@@ -48,7 +48,11 @@ class ProjectControllerTest {
 
         @Test
         void returnsListOfProjects() throws Exception {
-            when(projectService.getAllProjects(org.mockito.ArgumentMatchers.any())).thenReturn(singlePage(sampleResponse()));
+            when(projectService.getAllProjects(
+                    org.mockito.ArgumentMatchers.nullable(String.class),
+                    org.mockito.ArgumentMatchers.nullable(String.class),
+                    org.mockito.ArgumentMatchers.any()
+            )).thenReturn(singlePage(sampleResponse()));
 
             mockMvc.perform(get("/api/projects"))
                     .andExpect(status().isOk())

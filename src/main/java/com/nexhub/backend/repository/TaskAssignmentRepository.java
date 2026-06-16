@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, Long> {
     boolean existsByTask_Id(Long taskId);
     boolean existsByUser_Id(Long userId);
+    boolean existsByTask_IdAndUser_Id(Long taskId, Long userId);
 
     @EntityGraph(attributePaths = {"task", "task.project", "user"})
     @Query("select assignment from TaskAssignment assignment where assignment.task.id = :taskId")
@@ -50,4 +51,3 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, 
             """)
     java.util.List<TaskAssignment> findActiveOverdueAssignments(@Param("now") java.sql.Date now);
 }
-

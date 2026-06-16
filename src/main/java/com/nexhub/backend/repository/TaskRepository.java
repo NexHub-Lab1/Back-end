@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface TaskRepository extends JpaRepository<Task, Long> {
     boolean existsByProject_Id(Long projectId);
 
@@ -20,6 +22,13 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
            "(:search IS NULL OR :search = '' OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
            "((:status IS NULL OR :status = '') AND LOWER(t.status) <> 'cancelled' OR LOWER(t.status) = LOWER(:status))")
     Page<Task> searchTasks(@Param("search") String search, @Param("status") String status, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"project", "project.owner", "recommendedSkills"})
+    @Query("""
+            select distinct task from Task task
+            where lower(task.status) not in ('cancelled', 'completed', 'closed')
+            """)
+    List<Task> findFeaturedCandidates();
 
     @EntityGraph(attributePaths = {"project"})
     @Query("select task from Task task where task.project.id = :projectId")
