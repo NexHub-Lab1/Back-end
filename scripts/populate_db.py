@@ -45,6 +45,11 @@ INSECURE_SSL = os.environ.get(
     ENV.get("NEXHUB_INSECURE_SSL", "false")
 ).lower() in ("1", "true", "yes", "y")
 SSL_CONTEXT = ssl._create_unverified_context() if INSECURE_SSL else None
+TASK_CURRENCY = "ARS"
+NORMALIZE_EXISTING_TASK_CURRENCIES = os.environ.get(
+    "NEXHUB_NORMALIZE_TASK_CURRENCIES",
+    ENV.get("NEXHUB_NORMALIZE_TASK_CURRENCIES", "true")
+).lower() in ("1", "true", "yes", "y")
 
 def api_request(path, method="POST", data=None, token=None):
     url = f"{BASE_URL}{path}"
@@ -169,6 +174,47 @@ def find_task_by_project_and_title(project_id, title):
             return task.get("id")
     return None
 
+def list_all_tasks():
+    tasks = []
+    page = 0
+    while True:
+        res = api_request(f"/api/tasks?page={page}&size=100", method="GET")
+        data = res.get("data") if isinstance(res, dict) else None
+        content = paginated_content(res)
+        tasks.extend(content)
+        if not isinstance(data, dict) or data.get("last", True):
+            break
+        page += 1
+    return tasks
+
+def normalize_existing_task_currencies(token):
+    if not NORMALIZE_EXISTING_TASK_CURRENCIES:
+        print("Skipping task currency normalization; NEXHUB_NORMALIZE_TASK_CURRENCIES=false.")
+        return
+
+    print(f"Normalizing existing non-{TASK_CURRENCY} task currencies to {TASK_CURRENCY} where allowed...")
+    changed = 0
+    skipped = 0
+    for task in list_all_tasks():
+        task_id = task.get("id")
+        current_currency = str(task.get("rewardCurrency") or "").upper()
+        if not task_id or current_currency == TASK_CURRENCY:
+            continue
+
+        payload = {
+            "id": task_id,
+            "rewardCurrency": TASK_CURRENCY
+        }
+        res = api_request("/api/tasks/updatetask", method="POST", data=payload, token=token)
+        if res.get("status") == "success":
+            changed += 1
+            print(f" -> Task ID {task_id} currency updated from {current_currency} to {TASK_CURRENCY}.")
+        else:
+            skipped += 1
+            print(f" -> Skipped task ID {task_id}: {res.get('message')}")
+
+    print(f" -> Currency normalization finished. Updated: {changed}. Skipped: {skipped}.")
+
 def create_project(token, owner_id, name, description, github_repo, status, tags):
     existing_project_id = find_project_by_name(name)
     if existing_project_id:
@@ -285,6 +331,352 @@ def review_submission(token, submission_id, status, comments, reviewer_id, rejec
     else:
         print(f" -> ERROR reviewing submission: {res.get('message')}")
         return False
+
+def seed_marketplace_catalog(tokens, ids):
+    print("\nSeeding broader marketplace catalog...")
+    project_specs = [
+        {
+            "owner": "bob",
+            "name": "Realtime Collaboration Board",
+            "description": "A collaborative whiteboard for distributed product teams with live cursors, sticky notes, comments, and role-based sharing.",
+            "github_repo": "https://github.com/nexhub/realtime-board",
+            "status": "OPEN",
+            "tags": ["react", "websocket", "collaboration", "typescript"],
+            "tasks": [
+                {
+                    "title": "Add optimistic updates for sticky notes",
+                    "description": "Implement optimistic UI updates for creating, editing, and deleting sticky notes while the websocket acknowledgement is pending.",
+                    "deliverables": "Optimistic state reducer, rollback handling for failed events, and regression tests for note mutations.",
+                    "reward_amount": 85000,
+                    "deadline_days_ahead": 16,
+                    "max_attempts": 3,
+                    "skills": ["react", "typescript", "state-management"],
+                },
+                {
+                    "title": "Build live cursor presence indicators",
+                    "description": "Show active collaborators on the board with colored cursors, user initials, and idle state transitions after inactivity.",
+                    "deliverables": "Presence component, websocket event handling, and responsive cursor labels.",
+                    "reward_amount": 115000,
+                    "deadline_days_ahead": 20,
+                    "max_attempts": 3,
+                    "skills": ["react", "websocket", "ui"],
+                },
+                {
+                    "title": "Create board export to PDF",
+                    "description": "Add a server-assisted export flow that captures board content and downloads a readable PDF snapshot.",
+                    "deliverables": "Export button, backend export endpoint integration, loading/error states, and sample PDF output.",
+                    "reward_amount": 140000,
+                    "deadline_days_ahead": 24,
+                    "max_attempts": 2,
+                    "skills": ["pdf", "react", "backend"],
+                    "min_reputation": 20,
+                },
+            ],
+        },
+        {
+            "owner": "charlie",
+            "name": "GreenCommerce API",
+            "description": "A Spring Boot commerce backend for sustainable products, with catalog management, carts, coupons, and payment-ready order flows.",
+            "github_repo": "https://github.com/nexhub/greencommerce-api",
+            "status": "OPEN",
+            "tags": ["spring-boot", "java", "postgresql", "payments"],
+            "tasks": [
+                {
+                    "title": "Implement coupon validation engine",
+                    "description": "Create coupon validation rules for expiration, usage limits, minimum cart amount, and product category restrictions.",
+                    "deliverables": "Coupon service, repository queries, DTO validations, and unit tests for rule combinations.",
+                    "reward_amount": 125000,
+                    "deadline_days_ahead": 18,
+                    "max_attempts": 3,
+                    "skills": ["java", "spring-boot", "testing"],
+                },
+                {
+                    "title": "Add inventory reservation on checkout",
+                    "description": "Reserve stock while an order payment is pending and release it automatically if checkout expires.",
+                    "deliverables": "Inventory reservation model, scheduled cleanup, and integration tests for race conditions.",
+                    "reward_amount": 210000,
+                    "deadline_days_ahead": 28,
+                    "max_attempts": 3,
+                    "skills": ["java", "postgresql", "concurrency"],
+                    "min_reputation": 50,
+                },
+                {
+                    "title": "Document REST API examples",
+                    "description": "Write practical API examples for catalog, cart, coupon, and order endpoints using request and response payloads.",
+                    "deliverables": "Markdown documentation, curl examples, and one Postman collection export.",
+                    "reward_amount": 55000,
+                    "deadline_days_ahead": 9,
+                    "max_attempts": 2,
+                    "skills": ["documentation", "api", "markdown"],
+                },
+            ],
+        },
+        {
+            "owner": "julia",
+            "name": "Campus Events Platform",
+            "description": "A web platform for university clubs to publish events, manage registrations, and track attendance with QR codes.",
+            "github_repo": "https://github.com/nexhub/campus-events",
+            "status": "OPEN",
+            "tags": ["react", "node", "qr", "events"],
+            "tasks": [
+                {
+                    "title": "Build QR check-in scanner view",
+                    "description": "Create a mobile-friendly scanner screen for event organizers to validate attendee QR codes at the door.",
+                    "deliverables": "Scanner UI, permission handling, check-in API integration, and empty/error states.",
+                    "reward_amount": 95000,
+                    "deadline_days_ahead": 13,
+                    "max_attempts": 3,
+                    "skills": ["react", "qr", "mobile-ui"],
+                },
+                {
+                    "title": "Add attendee CSV export",
+                    "description": "Allow event owners to export registrations with attendance status and ticket metadata as CSV.",
+                    "deliverables": "Export endpoint integration, CSV formatting, and access-control checks.",
+                    "reward_amount": 70000,
+                    "deadline_days_ahead": 12,
+                    "max_attempts": 2,
+                    "skills": ["csv", "react", "backend"],
+                },
+                {
+                    "title": "Create event reminder notifications",
+                    "description": "Send reminders to registered attendees 24 hours before an event and when an event time changes.",
+                    "deliverables": "Notification trigger logic, message templates, and tests for schedule changes.",
+                    "reward_amount": 135000,
+                    "deadline_days_ahead": 22,
+                    "max_attempts": 3,
+                    "skills": ["notifications", "scheduler", "typescript"],
+                    "collaborative": True,
+                },
+            ],
+        },
+        {
+            "owner": "david",
+            "name": "Observability Dashboard",
+            "description": "A dashboard that visualizes API latency, error rate, and deployment health from service metrics.",
+            "github_repo": "https://github.com/nexhub/observability-dashboard",
+            "status": "OPEN",
+            "tags": ["react", "metrics", "charts", "observability"],
+            "tasks": [
+                {
+                    "title": "Create latency percentile chart",
+                    "description": "Visualize p50, p95, and p99 latency over time with filters for service and environment.",
+                    "deliverables": "Chart component, filter controls, mock data states, and responsive layout.",
+                    "reward_amount": 100000,
+                    "deadline_days_ahead": 15,
+                    "max_attempts": 3,
+                    "skills": ["react", "charts", "metrics"],
+                },
+                {
+                    "title": "Add incident annotation timeline",
+                    "description": "Display deploys and incidents as annotations over metric charts so users can correlate spikes with events.",
+                    "deliverables": "Timeline annotations, tooltip copy, and integration with incident payloads.",
+                    "reward_amount": 145000,
+                    "deadline_days_ahead": 21,
+                    "max_attempts": 3,
+                    "skills": ["react", "visualization", "ux"],
+                    "min_reputation": 30,
+                },
+                {
+                    "title": "Implement health summary cards",
+                    "description": "Build summary cards for uptime, error budget, open incidents, and slowest endpoints.",
+                    "deliverables": "Summary card components, API mappers, loading states, and unit tests.",
+                    "reward_amount": 90000,
+                    "deadline_days_ahead": 11,
+                    "max_attempts": 2,
+                    "skills": ["react", "testing", "api"],
+                },
+            ],
+        },
+        {
+            "owner": "nancy",
+            "name": "Health Appointment Scheduler",
+            "description": "A scheduling app for clinics to coordinate appointment slots, reminders, cancellations, and doctor availability.",
+            "github_repo": "https://github.com/nexhub/clinic-scheduler",
+            "status": "OPEN",
+            "tags": ["java", "react", "calendar", "healthcare"],
+            "tasks": [
+                {
+                    "title": "Prevent overlapping doctor appointments",
+                    "description": "Add backend validation to reject conflicting appointments for the same doctor and time window.",
+                    "deliverables": "Validation service, database query, and tests covering overlapping and adjacent slots.",
+                    "reward_amount": 130000,
+                    "deadline_days_ahead": 19,
+                    "max_attempts": 3,
+                    "skills": ["java", "spring-boot", "postgresql"],
+                },
+                {
+                    "title": "Build calendar week navigation",
+                    "description": "Implement a weekly calendar view with previous/next controls, today shortcut, and appointment density indicators.",
+                    "deliverables": "Calendar UI, date utilities, and responsive behavior for mobile.",
+                    "reward_amount": 110000,
+                    "deadline_days_ahead": 17,
+                    "max_attempts": 3,
+                    "skills": ["react", "calendar", "typescript"],
+                },
+                {
+                    "title": "Add cancellation reason analytics",
+                    "description": "Capture cancellation reasons and show a small analytics summary for clinic admins.",
+                    "deliverables": "Cancellation form field, reason aggregation endpoint, and admin summary UI.",
+                    "reward_amount": 155000,
+                    "deadline_days_ahead": 26,
+                    "max_attempts": 3,
+                    "skills": ["analytics", "java", "react"],
+                },
+            ],
+        },
+        {
+            "owner": "oscar",
+            "name": "Open Source Docs Portal",
+            "description": "A documentation portal with markdown import, full-text search, versioned pages, and contributor-friendly editing.",
+            "github_repo": "https://github.com/nexhub/docs-portal",
+            "status": "OPEN",
+            "tags": ["markdown", "search", "documentation", "nextjs"],
+            "tasks": [
+                {
+                    "title": "Implement markdown heading anchors",
+                    "description": "Generate stable heading anchors and a table of contents from markdown content.",
+                    "deliverables": "Markdown parser integration, anchor links, and tests for duplicate headings.",
+                    "reward_amount": 65000,
+                    "deadline_days_ahead": 8,
+                    "max_attempts": 2,
+                    "skills": ["markdown", "typescript", "frontend"],
+                },
+                {
+                    "title": "Add Algolia search adapter",
+                    "description": "Create a search adapter abstraction and implement an Algolia-backed provider for docs pages.",
+                    "deliverables": "Search adapter interface, Algolia provider, and mocked tests.",
+                    "reward_amount": 160000,
+                    "deadline_days_ahead": 23,
+                    "max_attempts": 3,
+                    "skills": ["search", "typescript", "api"],
+                    "min_reputation": 40,
+                },
+                {
+                    "title": "Improve empty states for missing docs",
+                    "description": "Design and implement clear empty states for missing pages, no search results, and unpublished versions.",
+                    "deliverables": "Empty state components, copy updates, and visual QA across desktop and mobile.",
+                    "reward_amount": 48000,
+                    "deadline_days_ahead": 7,
+                    "max_attempts": 2,
+                    "skills": ["ui", "ux", "react"],
+                },
+            ],
+        },
+        {
+            "owner": "elena",
+            "name": "FinOps Invoice Processor",
+            "description": "A backend workflow that extracts invoice metadata, validates totals, and prepares finance review queues.",
+            "github_repo": "https://github.com/nexhub/invoice-processor",
+            "status": "OPEN",
+            "tags": ["java", "ocr", "postgresql", "finance"],
+            "tasks": [
+                {
+                    "title": "Add invoice duplicate detection",
+                    "description": "Detect duplicate invoices using vendor tax ID, invoice number, currency, and total amount.",
+                    "deliverables": "Duplicate detection service, repository queries, and validation tests.",
+                    "reward_amount": 150000,
+                    "deadline_days_ahead": 18,
+                    "max_attempts": 3,
+                    "skills": ["java", "postgresql", "testing"],
+                },
+                {
+                    "title": "Create OCR confidence review queue",
+                    "description": "Route low-confidence OCR extractions to a manual review queue with fields highlighted for correction.",
+                    "deliverables": "Review queue API, DTOs, and frontend state contract documentation.",
+                    "reward_amount": 190000,
+                    "deadline_days_ahead": 27,
+                    "max_attempts": 3,
+                    "skills": ["java", "ocr", "workflow"],
+                    "min_reputation": 60,
+                },
+                {
+                    "title": "Export reviewed invoices as JSON",
+                    "description": "Add a download endpoint for reviewed invoices in a clean JSON structure ready for finance import.",
+                    "deliverables": "JSON export endpoint, schema documentation, and sample payloads.",
+                    "reward_amount": 80000,
+                    "deadline_days_ahead": 14,
+                    "max_attempts": 2,
+                    "skills": ["java", "json", "api"],
+                },
+            ],
+        },
+        {
+            "owner": "mike",
+            "name": "Learning Analytics Toolkit",
+            "description": "A toolkit for educators to track course engagement, assignment completion, and student progress trends.",
+            "github_repo": "https://github.com/nexhub/learning-analytics",
+            "status": "OPEN",
+            "tags": ["python", "react", "analytics", "education"],
+            "tasks": [
+                {
+                    "title": "Build assignment completion cohort table",
+                    "description": "Show completion rates by course cohort, week, and assignment type.",
+                    "deliverables": "Cohort table UI, API mappers, and deterministic test data fixtures.",
+                    "reward_amount": 105000,
+                    "deadline_days_ahead": 15,
+                    "max_attempts": 3,
+                    "skills": ["react", "analytics", "tables"],
+                },
+                {
+                    "title": "Add Python engagement scoring function",
+                    "description": "Implement a scoring function that combines logins, submissions, forum activity, and lecture progress.",
+                    "deliverables": "Python scoring module, docstring examples, and tests for edge cases.",
+                    "reward_amount": 125000,
+                    "deadline_days_ahead": 20,
+                    "max_attempts": 3,
+                    "skills": ["python", "analytics", "testing"],
+                },
+                {
+                    "title": "Create risk alert notification template",
+                    "description": "Create notification copy and trigger conditions for students at risk of falling behind.",
+                    "deliverables": "Notification template, trigger logic documentation, and UI preview state.",
+                    "reward_amount": 75000,
+                    "deadline_days_ahead": 10,
+                    "max_attempts": 2,
+                    "skills": ["notifications", "product", "ux"],
+                    "collaborative": True,
+                },
+            ],
+        },
+    ]
+
+    created_project_ids = {}
+    for spec in project_specs:
+        owner = spec["owner"]
+        if owner not in tokens or owner not in ids:
+            print(f"Skipping project '{spec['name']}' because owner '{owner}' is unavailable.")
+            continue
+
+        project_id = create_project(
+            token=tokens[owner],
+            owner_id=ids[owner],
+            name=spec["name"],
+            description=spec["description"],
+            github_repo=spec["github_repo"],
+            status=spec["status"],
+            tags=spec["tags"],
+        )
+        if not project_id:
+            continue
+
+        created_project_ids[spec["name"]] = project_id
+        for task in spec["tasks"]:
+            create_task(
+                token=tokens[owner],
+                project_id=project_id,
+                title=task["title"],
+                description=task["description"],
+                deliverables=task["deliverables"],
+                reward_amount=task["reward_amount"],
+                reward_currency=TASK_CURRENCY,
+                deadline_days_ahead=task["deadline_days_ahead"],
+                max_attempts=task["max_attempts"],
+                skills=task["skills"],
+                min_reputation=task.get("min_reputation", 0),
+                collaborative=task.get("collaborative", False),
+            )
+
+    print(f" -> Marketplace catalog ready: {len(created_project_ids)} projects processed.")
 
 def main():
     print("====================================================")
@@ -409,8 +801,8 @@ def main():
         title="Implement Biometric Authentication",
         description="Add secure biometric authentication (FaceID/Fingerprint scan) using expo-local-authentication. The login screen should display prompts when users activate bio-auth.",
         deliverables="Updated Auth Screen, biometric utility helper functions, and app config permissions.",
-        reward_amount=250.00,
-        reward_currency="USD",
+        reward_amount=250000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=30,
         max_attempts=3,
         skills=["react-native", "security", "typescript"]
@@ -422,8 +814,8 @@ def main():
         title="Optimize Tasks Scroll Performance",
         description="Improve flatlist scroll performance in the dashboard. Avoid component re-renders, implement virtual scrolling pagination, and optimize image asset caching.",
         deliverables="Flatlist component refactor and memory usage logs indicating rendering improvements.",
-        reward_amount=150.00,
-        reward_currency="USD",
+        reward_amount=150000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=14,
         max_attempts=2,
         skills=["react-native", "performance"]
@@ -436,8 +828,8 @@ def main():
         title="Enforce JSR-380 input validations",
         description="Implement validation on DTO records (Login, Signup, Project, and Tasks) using spring-boot-starter-validation annotations like @Size, @NotBlank, and @Email. Write a global handler for method argument validations.",
         deliverables="DTO validation additions, @RestControllerAdvice exception handler updates, and clean test suite coverage.",
-        reward_amount=180.00,
-        reward_currency="USD",
+        reward_amount=180000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=15,
         max_attempts=3,
         skills=["spring-boot", "java", "validation"]
@@ -450,8 +842,8 @@ def main():
         title="Implement Kafka Consumer retry logic",
         description="Build a resilient retry mechanism for parsing log streams when external services are temporarily unavailable. Config exponential backoff retries with dead-letter queue (DLQ) support.",
         deliverables="Kafka consumer retry queue configurations, backoff handler classes, and integration tests.",
-        reward_amount=300.00,
-        reward_currency="USD",
+        reward_amount=300000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=20,
         max_attempts=5,
         skills=["go", "kafka", "pipeline"]
@@ -463,8 +855,8 @@ def main():
         title="Add unit tests for Log Parser",
         description="Write unit tests for the regex-based log parsing engine to bring code coverage up to 90%.",
         deliverables="Unit tests covering logs parser engine edge cases.",
-        reward_amount=100.00,
-        reward_currency="USD",
+        reward_amount=100000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=10,
         max_attempts=3,
         skills=["go", "testing"]
@@ -530,8 +922,8 @@ def main():
         title="Refactor State Management to Redux Toolkit",
         description="Migrate legacy React Native context providers to Redux Toolkit slice architecture to support global query caching.",
         deliverables="Redux store setup, converted login/profile slice states, and clean async Thunk integrations.",
-        reward_amount=220.00,
-        reward_currency="USD",
+        reward_amount=220000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=15,
         max_attempts=3,
         skills=["react-native", "redux", "typescript"],
@@ -545,8 +937,8 @@ def main():
         title="Legacy Docker Compose Cleanup",
         description="Cleanup deprecated environment scripts and migrate secrets to docker compose configurations.",
         deliverables="Clean docker-compose file with environment variables.",
-        reward_amount=90.00,
-        reward_currency="USD",
+        reward_amount=90000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=-3, # Overdue task!
         max_attempts=2,
         skills=["docker", "bash"]
@@ -561,8 +953,8 @@ def main():
         title="Add SpotBugs static analysis tool",
         description="Configure SpotBugs inside gradle.build to automatically check local compilation builds for common security flaws.",
         deliverables="build.gradle configs and reports showing successful lint analysis builds.",
-        reward_amount=120.00,
-        reward_currency="USD",
+        reward_amount=120000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=12,
         max_attempts=2, # Max attempts = 2
         skills=["java", "gradle"]
@@ -587,8 +979,8 @@ def main():
         title="Develop CI/CD GitHub Actions Pipeline",
         description="Configure a robust GitHub Actions workflow that runs linting, tests, and builds the React Native application automatically on pull requests.",
         deliverables="github workflow yml config file and successful action run logs.",
-        reward_amount=200.00,
-        reward_currency="USD",
+        reward_amount=200000.00,
+        reward_currency=TASK_CURRENCY,
         deadline_days_ahead=25,
         max_attempts=3,
         skills=["github-actions", "ci-cd", "yaml"],
@@ -600,6 +992,9 @@ def main():
         assign_task(tokens["david"], t10_id, ids["david"], "david")
         # Julia assigns herself to the collaborative task (Team 2)
         assign_task(tokens["julia"], t10_id, ids["julia"], "julia")
+
+    seed_marketplace_catalog(tokens, ids)
+    normalize_existing_task_currencies(tokens["alice"])
 
     print("\n====================================================")
     print("          SEEDING COMPLETED SUCCESSFULLY!           ")
