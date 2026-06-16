@@ -5,11 +5,11 @@ import jakarta.validation.constraints.Size;
 
 public record LoginRequest(
         @NotBlank(message = "El email o username es obligatorio")
-        @Size(max = 255, message = "El identificador no puede superar los 255 caracteres")
+        @Size(max = 80, message = "El identificador no puede superar los 80 caracteres")
         String email,
 
         @NotBlank(message = "La contraseña es obligatoria")
-        @Size(max = 100, message = "La contraseña es demasiado larga")
+        @Size(max = 40, message = "La contraseña no puede superar los 40 caracteres")
         String password
 ) {
 }
