@@ -2,6 +2,7 @@ package com.nexhub.backend.controller;
 
 import com.nexhub.backend.dto.ApiResponse;
 import com.nexhub.backend.dto.PagedResponse;
+import com.nexhub.backend.dto.task.FeaturedTaskResponse;
 import com.nexhub.backend.dto.task.TaskRequest;
 import com.nexhub.backend.dto.task.TaskResponse;
 import com.nexhub.backend.dto.task.TaskUpdateRequest;
@@ -29,6 +30,14 @@ public class TaskController {
             @PageableDefault(size = 9) Pageable pageable
     ) {
         return ResponseEntity.ok(ApiResponse.success("List of tasks", taskService.getAllTasks(search, status, pageable)));
+    }
+
+    @GetMapping("/featured")
+    public ResponseEntity<ApiResponse<PagedResponse<FeaturedTaskResponse>>> getFeatured(
+            @RequestParam(required = false) Long userId,
+            @PageableDefault(size = 9) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("Featured tasks", taskService.getFeaturedTasks(userId, pageable)));
     }
 
     @GetMapping("/owner/{ownerId}")
