@@ -129,6 +129,8 @@ public class TaskSubmissionService {
         submission.setTask(task);
         submission.setUser(assignment.getUser());
         submission.setPullRequestUrl(request.pullRequestUrl().trim());
+        submission.setDescription(request.description());
+        submission.setDemoUrl(request.demoUrl());
         submission.setSubmittedAt(now());
         submission.setStatus(SUBMITTED_STATUS);
         submission.setAttemptsUsed(nextAttempt);
