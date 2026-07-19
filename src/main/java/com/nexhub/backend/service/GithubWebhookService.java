@@ -8,6 +8,8 @@ import com.nexhub.backend.model.Task;
 import com.nexhub.backend.model.TaskSubmission;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.repository.ProjectRepository;
+import com.nexhub.backend.repository.TaskAssignmentRepository;
+import com.nexhub.backend.repository.TaskRepository;
 import com.nexhub.backend.repository.TaskSubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +25,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -43,6 +47,8 @@ public class GithubWebhookService {
 
     private final ProjectRepository projectRepository;
     private final TaskSubmissionRepository taskSubmissionRepository;
+    private final TaskRepository taskRepository;
+    private final TaskAssignmentRepository taskAssignmentRepository;
     private final NotificationService notificationService;
     private final GithubWebhookVerifier githubWebhookVerifier;
     private final ObjectMapper objectMapper;
@@ -104,10 +110,106 @@ public class GithubWebhookService {
             case "ping" -> handlePing(root);
             case "pull_request" -> handlePullRequest(root);
             case "pull_request_review" -> handlePullRequestReview(root);
+            case "issues" -> handleIssue(root, deliveryId);
             default -> {
                 // Valid but unsupported GitHub events are intentionally acknowledged.
             }
         }
+    }
+
+    private void handleIssue(JsonNode root, String deliveryId) {
+        JsonNode issue = root.path("issue");
+        if (issue.isMissingNode() || issue.isNull() || issue.has("pull_request")) {
+            return;
+        }
+
+        Long issueId = longAt(root, "/issue/id");
+        if (issueId == null) {
+            return;
+        }
+        Optional<Task> storedTask = taskRepository.findByGithubIssueId(issueId);
+        if (storedTask.isEmpty()) {
+            return;
+        }
+
+        Task task = storedTask.get();
+        String repoUrl = textAt(root, "/repository/html_url");
+        if (!sameRepository(task, repoUrl)) {
+            return;
+        }
+
+        if (deliveryId != null && !deliveryId.isBlank()
+                && deliveryId.equals(task.getGithubIssueLastDeliveryId())) {
+            return;
+        }
+
+        List<Project> projects = findProjectsByRepoUrl(repoUrl);
+        touchWebhookDelivery(projects);
+        String action = text(root.path("action"));
+        String state = text(issue.path("state"));
+        String stateReason = text(issue.path("state_reason"));
+
+        if ("closed".equals(action)) {
+            task.setGithubIssueState("closed");
+            if ("completed".equals(stateReason)) {
+                if (!"cancelled".equalsIgnoreCase(task.getStatus())) {
+                    task.setStatus("completed");
+                }
+                notifyIssueUsers(task, "GitHub Issue #" + task.getGithubIssueNumber()
+                        + " for '" + task.getTitle() + "' was completed.", "SUCCESS");
+            } else if ("not_planned".equals(stateReason)) {
+                notifyOwner(task, "GitHub Issue #" + task.getGithubIssueNumber()
+                        + " for '" + task.getTitle() + "' was closed as not planned. Funding was not changed.", "WARNING");
+            }
+        } else if ("reopened".equals(action)) {
+            task.setGithubIssueState("open");
+            boolean protectedStatus = "cancelled".equalsIgnoreCase(task.getStatus())
+                    || "released".equalsIgnoreCase(task.getFundingStatus());
+            if (!protectedStatus) {
+                task.setStatus("in_progress");
+            }
+            notifyIssueUsers(task, "GitHub Issue #" + task.getGithubIssueNumber()
+                    + " for '" + task.getTitle() + "' was reopened.", "INFO");
+        } else {
+            return;
+        }
+
+        if (state != null && !state.isBlank()) {
+            task.setGithubIssueState(state.toLowerCase(Locale.ROOT));
+        }
+        task.setGithubIssueLastDeliveryId(deliveryId == null || deliveryId.isBlank() ? null : deliveryId);
+        task.setGithubIssueLastSyncedAt(Timestamp.from(Instant.now()));
+        task.setGithubIssueSyncStatus("synced");
+        task.setGithubIssueLastError(null);
+        taskRepository.save(task);
+    }
+
+    private boolean sameRepository(Task task, String repositoryUrl) {
+        Project project = task.getProject();
+        String taskRepo = project == null ? null : normalizeUrl(project.getGithubRepo());
+        String eventRepo = normalizeUrl(repositoryUrl);
+        return taskRepo != null && taskRepo.equals(eventRepo);
+    }
+
+    private void notifyIssueUsers(Task task, String message, String type) {
+        Set<Long> notifiedUserIds = new LinkedHashSet<>();
+        User owner = task.getProject() == null ? null : task.getProject().getOwner();
+        notifyOnce(owner, message, type, task, notifiedUserIds);
+        for (var assignment : taskAssignmentRepository.findByTask_Id(task.getId())) {
+            notifyOnce(assignment.getUser(), message, type, task, notifiedUserIds);
+        }
+    }
+
+    private void notifyOwner(Task task, String message, String type) {
+        User owner = task.getProject() == null ? null : task.getProject().getOwner();
+        sendNotification(owner, message, type, "/task/" + task.getId());
+    }
+
+    private void notifyOnce(User user, String message, String type, Task task, Set<Long> notifiedUserIds) {
+        if (user == null || user.getId() == null || !notifiedUserIds.add(user.getId())) {
+            return;
+        }
+        sendNotification(user, message, type, "/task/" + task.getId());
     }
 
     private void handlePing(JsonNode root) {
@@ -420,7 +522,7 @@ public class GithubWebhookService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("name", "web");
         body.put("active", true);
-        body.put("events", List.of("pull_request", "pull_request_review"));
+        body.put("events", List.of("pull_request", "pull_request_review", "issues"));
         body.put("config", config);
 
         try {

@@ -14,6 +14,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,5 +72,37 @@ class NotificationServiceTest {
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(captor.capture());
         assertThat(captor.getValue().getTargetPath()).isEqualTo("/task/42");
+    }
+
+    @Test
+    void sendNotificationSendsEmailWhenAlertsAreEnabled() {
+        User user = new User();
+        user.setEmail("test@example.com");
+        user.setEmailNotificationsEnabled(true);
+
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(i -> i.getArgument(0));
+
+        notificationService.sendNotification(user, "Task assigned", "INFO", "/task/42");
+
+        verify(emailService).sendNotificationEmail(
+                eq("test@example.com"),
+                eq("NexHub Alert: INFO"),
+                eq("Task assigned"),
+                eq("INFO"),
+                eq("/task/42")
+        );
+    }
+
+    @Test
+    void sendNotificationSkipsEmailWhenAlertsAreDisabled() {
+        User user = new User();
+        user.setEmail("test@example.com");
+        user.setEmailNotificationsEnabled(false);
+
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(i -> i.getArgument(0));
+
+        notificationService.sendNotification(user, "Task assigned", "INFO", "/task/42");
+
+        verify(emailService, never()).sendNotificationEmail(any(), any(), any(), any(), any());
     }
 }

@@ -7,6 +7,7 @@ import com.nexhub.backend.dto.task.TaskRequest;
 import com.nexhub.backend.dto.task.TaskResponse;
 import com.nexhub.backend.dto.task.TaskUpdateRequest;
 import com.nexhub.backend.service.TaskService;
+import com.nexhub.backend.service.GithubIssueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -16,12 +17,14 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.NoSuchElementException;
+import java.security.Principal;
 
 @RestController
 @RequestMapping("/api/tasks")
 @RequiredArgsConstructor
 public class TaskController {
     private final TaskService taskService;
+    private final GithubIssueService githubIssueService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PagedResponse<TaskResponse>>> getAll(
@@ -113,6 +116,21 @@ public class TaskController {
     public ResponseEntity<ApiResponse<TaskResponse>> update(@Valid @RequestBody TaskUpdateRequest request) {
         try {
             return ResponseEntity.ok(ApiResponse.success("Updated correctly", taskService.updateTask(request)));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/github-issue/sync")
+    public ResponseEntity<ApiResponse<TaskResponse>> retryGithubIssueSync(
+            @PathVariable Long id,
+            Principal principal
+    ) {
+        try {
+            var task = githubIssueService.retryTaskIssue(id, principal == null ? null : principal.getName());
+            return ResponseEntity.ok(ApiResponse.success("GitHub issue synchronization finished", TaskResponse.fromTask(task)));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
         } catch (IllegalArgumentException e) {

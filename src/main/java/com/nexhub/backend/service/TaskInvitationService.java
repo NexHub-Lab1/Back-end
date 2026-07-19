@@ -3,6 +3,7 @@ package com.nexhub.backend.service;
 import com.nexhub.backend.dto.PagedResponse;
 import com.nexhub.backend.dto.taskinvitation.TaskInvitationRequest;
 import com.nexhub.backend.dto.taskinvitation.TaskInvitationResponse;
+import com.nexhub.backend.event.TaskAssignmentCreatedEvent;
 import com.nexhub.backend.model.Task;
 import com.nexhub.backend.model.TaskAssignment;
 import com.nexhub.backend.model.TaskInvitation;
@@ -14,6 +15,7 @@ import com.nexhub.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Date;
@@ -31,6 +33,7 @@ public class TaskInvitationService {
     private final UserRepository userRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TaskInvitationResponse createInvitation(User sender, TaskInvitationRequest request) {
         if (request == null || request.taskId() == null || request.receiverId() == null) {
@@ -144,6 +147,7 @@ public class TaskInvitationService {
         collaboratorAssignment.setParentAssignment(senderAssignment);
 
         taskAssignmentRepository.save(collaboratorAssignment);
+        eventPublisher.publishEvent(new TaskAssignmentCreatedEvent(invitation.getTask().getId()));
 
         // Notify sender
         notificationService.sendNotification(
