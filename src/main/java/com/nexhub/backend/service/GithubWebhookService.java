@@ -4,9 +4,11 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nexhub.backend.model.Project;
+import com.nexhub.backend.model.GithubWebhookDelivery;
 import com.nexhub.backend.model.Task;
 import com.nexhub.backend.model.TaskSubmission;
 import com.nexhub.backend.model.User;
+import com.nexhub.backend.repository.GithubWebhookDeliveryRepository;
 import com.nexhub.backend.repository.ProjectRepository;
 import com.nexhub.backend.repository.TaskAssignmentRepository;
 import com.nexhub.backend.repository.TaskRepository;
@@ -50,6 +52,8 @@ public class GithubWebhookService {
     private final TaskRepository taskRepository;
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final NotificationService notificationService;
+    private final GithubActivityService githubActivityService;
+    private final GithubWebhookDeliveryRepository githubWebhookDeliveryRepository;
     private final GithubWebhookVerifier githubWebhookVerifier;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -104,17 +108,24 @@ public class GithubWebhookService {
         if (event == null || event.isBlank()) {
             throw new IllegalArgumentException("GitHub event is required");
         }
+        if (deliveryId != null && !deliveryId.isBlank()
+                && githubWebhookDeliveryRepository.existsById(deliveryId)) {
+            return;
+        }
 
         JsonNode root = readPayload(payload);
         switch (event) {
             case "ping" -> handlePing(root);
             case "pull_request" -> handlePullRequest(root);
-            case "pull_request_review" -> handlePullRequestReview(root);
+            case "pull_request_review" -> handlePullRequestReview(root, deliveryId);
+            case "issue_comment" -> handlePullRequestComment(root, deliveryId, "issue_comment");
+            case "pull_request_review_comment" -> handlePullRequestComment(root, deliveryId, "pull_request_review_comment");
             case "issues" -> handleIssue(root, deliveryId);
             default -> {
                 // Valid but unsupported GitHub events are intentionally acknowledged.
             }
         }
+        recordDelivery(event, deliveryId);
     }
 
     private void handleIssue(JsonNode root, String deliveryId) {
@@ -249,21 +260,123 @@ public class GithubWebhookService {
         notifyProjectOwners(projects, buildProjectPullRequestMessage(action, number, title, merged), "INFO");
     }
 
-    private void handlePullRequestReview(JsonNode root) {
+    private void handlePullRequestReview(JsonNode root, String deliveryId) {
         JsonNode pullRequest = root.path("pull_request");
         JsonNode review = root.path("review");
+        String action = text(root.path("action"));
         String repoUrl = textAt(root, "/repository/html_url");
         String pullRequestUrl = text(pullRequest.path("html_url"));
         int number = pullRequest.path("number").asInt();
-        String state = text(review.path("state"));
+        String state = "dismissed".equals(action) ? "dismissed" : text(review.path("state"));
 
         List<Project> projects = findProjectsByRepoUrl(repoUrl);
         touchWebhookDelivery(projects);
 
         findSubmissionByPullRequestUrl(pullRequestUrl).ifPresentOrElse(
-                submission -> notifySubmissionReview(submission, number, state),
+                submission -> {
+                    Timestamp reviewUpdatedAt = timestampAt(review, "submitted_at");
+                    boolean updated = githubActivityService.updateReviewState(
+                            submission,
+                            deliveryId,
+                            state,
+                            textAt(review, "/user/login"),
+                            text(review.path("html_url")),
+                            reviewUpdatedAt
+                    );
+                    Long reviewId = longAt(review, "/id");
+                    String reviewBody = text(review.path("body"));
+                    if (reviewId != null && reviewBody != null && !reviewBody.isBlank()) {
+                        githubActivityService.applyComment(
+                                submission,
+                                "pull_request_review",
+                                "submitted".equals(action) ? "created" : "edited",
+                                deliveryId,
+                                reviewId,
+                                textAt(review, "/user/login"),
+                                textAt(review, "/user/avatar_url"),
+                                reviewBody,
+                                text(review.path("html_url")),
+                                reviewUpdatedAt,
+                                reviewUpdatedAt
+                        );
+                    }
+                    if (updated) {
+                        notifySubmissionReview(submission, number, state);
+                    }
+                },
                 () -> notifyProjectOwners(projects, "GitHub PR #" + number + " received a review: " + humanizeReviewState(state) + ".", notificationTypeForReview(state))
         );
+    }
+
+    private void handlePullRequestComment(JsonNode root, String deliveryId, String eventType) {
+        String action = text(root.path("action"));
+        if (!Set.of("created", "edited", "deleted").contains(action)) {
+            return;
+        }
+        if ("issue_comment".equals(eventType) && !root.path("issue").has("pull_request")) {
+            return;
+        }
+
+        String repoUrl = textAt(root, "/repository/html_url");
+        List<Project> projects = findProjectsByRepoUrl(repoUrl);
+        touchWebhookDelivery(projects);
+
+        String pullRequestUrl = "issue_comment".equals(eventType)
+                ? textAt(root, "/issue/pull_request/html_url")
+                : textAt(root, "/pull_request/html_url");
+        int pullRequestNumber = "issue_comment".equals(eventType)
+                ? root.path("issue").path("number").asInt()
+                : root.path("pull_request").path("number").asInt();
+        if ((pullRequestUrl == null || pullRequestUrl.isBlank()) && repoUrl != null && pullRequestNumber > 0) {
+            pullRequestUrl = normalizeUrl(repoUrl) + "/pull/" + pullRequestNumber;
+        }
+
+        Optional<TaskSubmission> linkedSubmission = findSubmissionByPullRequestUrl(pullRequestUrl);
+        if (linkedSubmission.isEmpty()) {
+            return;
+        }
+
+        JsonNode comment = root.path("comment");
+        Long commentId = longAt(comment, "/id");
+        if (commentId == null) {
+            return;
+        }
+        String author = textAt(comment, "/user/login");
+        GithubActivityService.CommentResult result = githubActivityService.applyComment(
+                linkedSubmission.get(),
+                eventType,
+                action,
+                deliveryId,
+                commentId,
+                author,
+                textAt(comment, "/user/avatar_url"),
+                text(comment.path("body")),
+                text(comment.path("html_url")),
+                timestampAt(comment, "created_at"),
+                timestampAt(comment, "updated_at")
+        );
+        if (result == GithubActivityService.CommentResult.CREATED) {
+            notifySubmissionComment(linkedSubmission.get(), pullRequestNumber, author);
+        }
+    }
+
+    private void notifySubmissionComment(TaskSubmission submission, int pullRequestNumber, String author) {
+        Task task = submission.getTask();
+        Project project = task == null ? null : task.getProject();
+        User owner = project == null ? null : project.getOwner();
+        User developer = submission.getUser();
+        String taskTitle = task == null || task.getTitle() == null ? "submission" : task.getTitle();
+        String targetPath = task == null || task.getId() == null ? null : "/task/" + task.getId();
+        String authorLabel = author == null || author.isBlank() ? "Someone" : "@" + author;
+        String message = authorLabel + " commented on GitHub PR #" + pullRequestNumber
+                + " for '" + taskTitle + "'.";
+
+        if (!sameGithubUser(owner, author)) {
+            sendNotification(owner, message, "INFO", targetPath);
+        }
+        if (!sameUser(owner, developer) && !sameGithubUser(developer, author)) {
+            sendNotification(developer, message, "INFO", targetPath);
+        }
     }
 
     private void notifySubmissionPullRequest(
@@ -331,6 +444,13 @@ public class GithubWebhookService {
         notificationService.sendNotification(user, message, type, targetPath);
     }
 
+    private boolean sameGithubUser(User user, String githubUsername) {
+        return user != null
+                && user.getGithub_username() != null
+                && githubUsername != null
+                && user.getGithub_username().equalsIgnoreCase(githubUsername);
+    }
+
     private String buildSubmissionPullRequestMessage(String action, int pullRequestNumber, String taskTitle, boolean merged) {
         if ("closed".equals(action)) {
             return merged
@@ -379,6 +499,28 @@ public class GithubWebhookService {
             case "changes_requested" -> "WARNING";
             default -> "INFO";
         };
+    }
+
+    private void recordDelivery(String event, String deliveryId) {
+        if (deliveryId == null || deliveryId.isBlank()) {
+            return;
+        }
+        GithubWebhookDelivery delivery = new GithubWebhookDelivery();
+        delivery.setDeliveryId(deliveryId);
+        delivery.setEventType(event);
+        githubWebhookDeliveryRepository.save(delivery);
+    }
+
+    private Timestamp timestampAt(JsonNode node, String field) {
+        String value = text(node.path(field));
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Timestamp.from(Instant.parse(value));
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private void touchWebhookDelivery(List<Project> projects) {
@@ -522,7 +664,13 @@ public class GithubWebhookService {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("name", "web");
         body.put("active", true);
-        body.put("events", List.of("pull_request", "pull_request_review", "issues"));
+        body.put("events", List.of(
+                "pull_request",
+                "pull_request_review",
+                "pull_request_review_comment",
+                "issue_comment",
+                "issues"
+        ));
         body.put("config", config);
 
         try {

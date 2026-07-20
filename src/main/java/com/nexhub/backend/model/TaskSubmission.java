@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 
 @Entity
 @Table(name = "task_submissions")
@@ -76,6 +77,31 @@ public class TaskSubmission {
     @Setter
     @Column(name = "attempts_used", nullable = false)
     private Integer attemptsUsed;
+
+    @Getter
+    @Setter
+    @Column(name = "github_review_state", length = 64)
+    private String githubReviewState;
+
+    @Getter
+    @Setter
+    @Column(name = "github_review_author", length = 100)
+    private String githubReviewAuthor;
+
+    @Getter
+    @Setter
+    @Column(name = "github_review_url", length = 1000)
+    private String githubReviewUrl;
+
+    @Getter
+    @Setter
+    @Column(name = "github_review_updated_at")
+    private Timestamp githubReviewUpdatedAt;
+
+    @Getter
+    @Setter
+    @Column(name = "github_review_last_delivery_id", length = 100)
+    private String githubReviewLastDeliveryId;
 
     @PrePersist
     void prePersist() {

@@ -7,6 +7,7 @@ import com.nexhub.backend.model.TaskSubmission;
 import com.nexhub.backend.model.User;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 
 public record TaskSubmissionResponse(
         Long id,
@@ -24,7 +25,11 @@ public record TaskSubmissionResponse(
         Date reviewedAt,
         Long reviewerId,
         String reviewerUsername,
-        Integer attemptsUsed
+        Integer attemptsUsed,
+        String githubReviewState,
+        String githubReviewAuthor,
+        String githubReviewUrl,
+        Timestamp githubReviewUpdatedAt
 ) {
     public static TaskSubmissionResponse fromTaskSubmission(TaskSubmission submission) {
         Task task = submission.getTask();
@@ -49,7 +54,11 @@ public record TaskSubmissionResponse(
                 submission.getReviewedAt(),
                 reviewer != null ? reviewer.getId() : null,
                 reviewer != null ? reviewer.getUsername() : null,
-                submission.getAttemptsUsed()
+                submission.getAttemptsUsed(),
+                submission.getGithubReviewState(),
+                submission.getGithubReviewAuthor(),
+                submission.getGithubReviewUrl(),
+                submission.getGithubReviewUpdatedAt()
         );
     }
 }
