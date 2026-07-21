@@ -11,6 +11,7 @@ import com.nexhub.backend.service.github.GithubIssueClient;
 import com.nexhub.backend.service.github.GithubIssueClient.GithubIssue;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -35,7 +36,7 @@ public class GithubIssueService {
     private final UserRepository userRepository;
     private final GithubIssueClient githubIssueClient;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Task syncTaskIssue(Long taskId) {
         Task task = taskRepository.findByIdForGithubIssueSync(taskId)
                 .orElseThrow(() -> new NoSuchElementException("Task not found"));
