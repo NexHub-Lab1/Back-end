@@ -48,6 +48,16 @@ public class TaskSubmission {
 
     @Getter
     @Setter
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Getter
+    @Setter
+    @Column(name = "demo_url", length = 500)
+    private String demoUrl;
+
+    @Getter
+    @Setter
     @Column(name = "submitted_at", nullable = false)
     private Date submittedAt;
 
