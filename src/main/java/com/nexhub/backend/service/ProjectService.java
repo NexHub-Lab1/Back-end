@@ -34,6 +34,7 @@ public class ProjectService {
     private final TagRepository tagRepository;
     private final TaskRepository taskRepository;
     private final GithubWebhookService githubWebhookService;
+    private final FigmaService figmaService;
 
     @Transactional(readOnly = true)
     public PagedResponse<ProjectResponse> getAllProjects(String search, String status, Pageable pageable) {
@@ -69,7 +70,18 @@ public class ProjectService {
         project.setOwner(owner);
         project.setName(request.name().trim());
         project.setDescription(request.description().trim());
-        project.setGithubRepo(request.githubRepo().trim());
+        if (request.githubRepo() != null) {
+            project.setGithubRepo(request.githubRepo().trim());
+        }
+        if (request.figmaFileUrl() != null) {
+            project.setFigmaFileUrl(request.figmaFileUrl().trim());
+            try {
+                String fileKey = figmaService.extractFileKey(request.figmaFileUrl().trim());
+                project.setFigmaFileKey(fileKey);
+            } catch (Exception e) {
+                // Ignore key extraction error if invalid url format
+            }
+        }
         project.setStatus(normalizeStatus(request.status()));
         project.setCreated_at(now());
         project.setUpdated_at(now());
@@ -79,8 +91,40 @@ public class ProjectService {
         project.setTags(resolveTags(request.tags()));
 
         Project savedProject = projectRepository.save(project);
-        Project webhookProject = githubWebhookService.ensureProjectWebhook(savedProject);
-        return ProjectResponse.fromProject(webhookProject == null ? savedProject : webhookProject);
+        if (savedProject.getGithubRepo() != null && !savedProject.getGithubRepo().isBlank()) {
+            Project webhookProject = githubWebhookService.ensureProjectWebhook(savedProject);
+            return ProjectResponse.fromProject(webhookProject == null ? savedProject : webhookProject);
+        }
+        return ProjectResponse.fromProject(savedProject);
+    }
+
+    public ProjectResponse importFigmaProject(String figmaUrl, String userEmail) {
+        User owner = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+
+        if (owner.getFigma_access_token() == null || owner.getFigma_access_token().isBlank()) {
+            throw new IllegalArgumentException("You must connect your Figma account first.");
+        }
+
+        String fileKey = figmaService.extractFileKey(figmaUrl);
+        FigmaService.FigmaFileMetadata metadata = figmaService.fetchFileMetadata(fileKey, owner.getFigma_access_token());
+
+        Project project = new Project();
+        project.setOwner(owner);
+        project.setName(metadata.name());
+        project.setDescription("Imported Figma design file.");
+        project.setFigmaFileUrl(figmaUrl);
+        project.setFigmaFileKey(fileKey);
+        project.setFigmaThumbnailUrl(metadata.thumbnailUrl());
+        project.setStatus("OPEN");
+        project.setCreated_at(now());
+        project.setUpdated_at(now());
+        project.setLast_active_at(now());
+        project.setCompleted_tasks_count(0L);
+        project.setStars_count(0L);
+
+        Project savedProject = projectRepository.save(project);
+        return ProjectResponse.fromProject(savedProject);
     }
 
     public ProjectResponse updateProject(ProjectUpdateRequest request) {
@@ -97,8 +141,17 @@ public class ProjectService {
             project.setDescription(request.description().trim());
         }
         String previousGithubRepo = project.getGithubRepo();
-        if (request.githubRepo() != null && !request.githubRepo().isBlank()) {
+        if (request.githubRepo() != null) {
             project.setGithubRepo(request.githubRepo().trim());
+        }
+        if (request.figmaFileUrl() != null) {
+            project.setFigmaFileUrl(request.figmaFileUrl().trim());
+            try {
+                String fileKey = figmaService.extractFileKey(request.figmaFileUrl().trim());
+                project.setFigmaFileKey(fileKey);
+            } catch (Exception e) {
+                // Ignore extraction errors
+            }
         }
         if (request.status() != null && !request.status().isBlank()) {
             project.setStatus(request.status().trim());
@@ -107,11 +160,11 @@ public class ProjectService {
             project.setTags(resolveTags(request.tags()));
         }
 
-        validateProjectFields(project.getName(), project.getDescription(), project.getGithubRepo());
+        validateProjectFields(project.getName(), project.getDescription(), project.getGithubRepo(), project.getFigmaFileUrl());
         project.setUpdated_at(now());
 
         Project savedProject = projectRepository.save(project);
-        if (hasGithubRepoChanged(previousGithubRepo, savedProject.getGithubRepo())) {
+        if (savedProject.getGithubRepo() != null && !savedProject.getGithubRepo().isBlank() && hasGithubRepoChanged(previousGithubRepo, savedProject.getGithubRepo())) {
             Project webhookProject = githubWebhookService.ensureProjectWebhook(savedProject);
             savedProject = webhookProject == null ? savedProject : webhookProject;
         }
@@ -164,20 +217,22 @@ public class ProjectService {
         if (request.ownerId() == null) {
             throw new IllegalArgumentException("Owner id is required");
         }
-        validateProjectFields(request.name(), request.description(), request.githubRepo());
+        validateProjectFields(request.name(), request.description(), request.githubRepo(), request.figmaFileUrl());
     }
 
-    private void validateProjectFields(String name, String description, String githubRepo) {
+    private void validateProjectFields(String name, String description, String githubRepo, String figmaFileUrl) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Project name is required");
         }
         if (description == null || description.isBlank()) {
             throw new IllegalArgumentException("Project description is required");
         }
-        if (githubRepo == null || githubRepo.isBlank()) {
-            throw new IllegalArgumentException("Project repository is required");
+        boolean hasGithub = githubRepo != null && !githubRepo.isBlank();
+        boolean hasFigma = figmaFileUrl != null && !figmaFileUrl.isBlank();
+        if (!hasGithub && !hasFigma) {
+            throw new IllegalArgumentException("Either a GitHub repository or a Figma URL is required");
         }
-        if (!isGithubRepositoryUrl(githubRepo)) {
+        if (hasGithub && !isGithubRepositoryUrl(githubRepo)) {
             throw new IllegalArgumentException("Project repository must be a valid GitHub repository URL");
         }
     }

@@ -49,6 +49,21 @@ public class Project {
 
     @Getter
     @Setter
+    @Column(name = "figma_file_url")
+    private String figmaFileUrl;
+
+    @Getter
+    @Setter
+    @Column(name = "figma_file_key")
+    private String figmaFileKey;
+
+    @Getter
+    @Setter
+    @Column(name = "figma_thumbnail_url", length = 1000)
+    private String figmaThumbnailUrl;
+
+    @Getter
+    @Setter
     private String status;
 
     @Getter

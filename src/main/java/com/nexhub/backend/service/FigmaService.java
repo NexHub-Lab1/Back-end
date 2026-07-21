@@ -217,6 +217,54 @@ public class FigmaService {
         return localPart + "+" + suffix + "@" + domain;
     }
 
+
+    public String extractFileKey(String url) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("Figma URL is required");
+        }
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("figma\\.com/(?:file|design)/([^/\\s?#]+)");
+        java.util.regex.Matcher matcher = pattern.matcher(url);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        throw new IllegalArgumentException("Invalid Figma file or design URL");
+    }
+
+    public FigmaFileMetadata fetchFileMetadata(String fileKey, String accessToken) {
+        if (fileKey == null || fileKey.isBlank()) {
+            throw new IllegalArgumentException("Figma file key is required");
+        }
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("Figma access token is required");
+        }
+
+        String url = "https://api.figma.com/v1/files/" + encode(fileKey);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .header(HttpHeaders.USER_AGENT, FIGMA_USER_AGENT)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = send(request);
+        if (response.statusCode() >= 400) {
+            throw new IllegalArgumentException("Unable to load Figma file metadata: " + response.body());
+        }
+
+        try {
+            Map<String, Object> payload = jsonParser.parseMap(response.body());
+            return new FigmaFileMetadata(
+                    asString(payload.get("name")),
+                    asNullableString(payload.get("thumbnail_url"))
+            );
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("Unable to parse Figma file response");
+        }
+    }
+
+    public record FigmaFileMetadata(String name, String thumbnailUrl) {}
+
     private String buildFallbackEmail(String handle) {
         String normalized = handle == null || handle.isBlank() ? "figma-user" : handle.trim().replaceAll("[^a-zA-Z0-9_-]", "");
         return normalized + "@users.noreply.figma.local";

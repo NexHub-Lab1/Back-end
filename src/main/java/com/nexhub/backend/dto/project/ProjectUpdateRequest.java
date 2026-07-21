@@ -17,6 +17,8 @@ public record ProjectUpdateRequest(
         @Size(max = 255, message = "La URL del repositorio es demasiado larga")
         String githubRepo,
 
+        String figmaFileUrl,
+
         @Size(max = 50, message = "El estado no puede superar los 50 caracteres")
         String status,
 
