@@ -8,9 +8,11 @@ public record TaskSubmissionRequest(
         @NotNull(message = "El ID de asignación es obligatorio")
         Long assignmentId,
 
-        @NotBlank(message = "La URL del Pull Request es obligatoria")
         @Size(max = 500, message = "La URL del Pull Request no puede superar los 500 caracteres")
         String pullRequestUrl,
+
+        @Size(max = 500, message = "La URL de Figma o diseño no puede superar los 500 caracteres")
+        String designUrl,
 
         String description,
 

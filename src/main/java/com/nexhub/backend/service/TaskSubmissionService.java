@@ -114,7 +114,12 @@ public class TaskSubmissionService {
     }
 
     public TaskSubmissionResponse createSubmission(TaskSubmissionRequest request) {
-        validateCreateRequest(request);
+        if (request == null) {
+            throw new IllegalArgumentException("Submission data is required");
+        }
+        if (request.assignmentId() == null) {
+            throw new IllegalArgumentException("Assignment id is required");
+        }
 
         TaskAssignment assignment = taskAssignmentRepository.findById(request.assignmentId())
                 .orElseThrow(() -> new NoSuchElementException("Assignment not found"));
@@ -124,11 +129,18 @@ public class TaskSubmissionService {
         int nextAttempt = currentAttemptsUsed(assignment) + 1;
         Task task = assignment.getTask();
 
+        if ("DESIGN".equalsIgnoreCase(task.getTaskType()) || "VISUAL".equalsIgnoreCase(task.getTaskType())) {
+            validateDesignUrl(request.designUrl());
+        } else {
+            validatePullRequestUrl(request.pullRequestUrl());
+        }
+
         TaskSubmission submission = new TaskSubmission();
         submission.setAssignment(assignment);
         submission.setTask(task);
         submission.setUser(assignment.getUser());
-        submission.setPullRequestUrl(request.pullRequestUrl().trim());
+        submission.setPullRequestUrl(request.pullRequestUrl() != null ? request.pullRequestUrl().trim() : null);
+        submission.setDesignUrl(request.designUrl() != null ? request.designUrl().trim() : null);
         submission.setDescription(request.description());
         submission.setDemoUrl(request.demoUrl());
         submission.setSubmittedAt(now());
@@ -159,9 +171,14 @@ public class TaskSubmissionService {
         TaskSubmission submission = findExistingSubmission(request.id());
         String previousStatus = submission.getStatus();
 
-        if (request.pullRequestUrl() != null) {
+        if (request.pullRequestUrl() != null && ("DEVELOPMENT".equalsIgnoreCase(submission.getTask().getTaskType()) || submission.getTask().getTaskType() == null)) {
             validatePullRequestUrl(request.pullRequestUrl());
             submission.setPullRequestUrl(request.pullRequestUrl().trim());
+        }
+        
+        if (request.designUrl() != null && ("DESIGN".equalsIgnoreCase(submission.getTask().getTaskType()) || "VISUAL".equalsIgnoreCase(submission.getTask().getTaskType()))) {
+            validateDesignUrl(request.designUrl());
+            submission.setDesignUrl(request.designUrl().trim());
         }
 
         if (request.reviewComments() != null) {
@@ -241,15 +258,7 @@ public class TaskSubmissionService {
                 .orElseThrow(() -> new NoSuchElementException("Submission not found"));
     }
 
-    private void validateCreateRequest(TaskSubmissionRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("Submission data is required");
-        }
-        if (request.assignmentId() == null) {
-            throw new IllegalArgumentException("Assignment id is required");
-        }
-        validatePullRequestUrl(request.pullRequestUrl());
-    }
+
 
     private void validateAssignmentCanReceiveSubmission(TaskAssignment assignment) {
         if (assignment.getTask() == null) {
@@ -276,7 +285,7 @@ public class TaskSubmissionService {
 
     private void validatePullRequestUrl(String pullRequestUrl) {
         if (pullRequestUrl == null || pullRequestUrl.isBlank()) {
-            throw new IllegalArgumentException("Pull request URL is required");
+            throw new IllegalArgumentException("Pull request URL is required for development tasks");
         }
 
         try {
@@ -290,6 +299,29 @@ public class TaskSubmissionService {
             }
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Pull request URL must be a valid URL");
+        }
+    }
+
+    private void validateDesignUrl(String designUrl) {
+        if (designUrl == null || designUrl.isBlank()) {
+            throw new IllegalArgumentException("Design URL is required for visual tasks");
+        }
+
+        try {
+            URI uri = new URI(designUrl.trim());
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null
+                    || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))
+                    || host == null
+                    || host.isBlank()) {
+                throw new IllegalArgumentException("Design URL must be a valid URL");
+            }
+            if (!host.toLowerCase().contains("figma.com")) {
+                throw new IllegalArgumentException("Design URL must be a valid Figma link (figma.com)");
+            }
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException("Design URL must be a valid URL");
         }
     }
 

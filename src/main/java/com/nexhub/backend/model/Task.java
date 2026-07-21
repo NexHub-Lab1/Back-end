@@ -74,6 +74,11 @@ public class Task {
 
     @Getter
     @Setter
+    @Column(name = "task_type", nullable = false, columnDefinition = "VARCHAR(255) DEFAULT 'DEVELOPMENT'")
+    private String taskType = "DEVELOPMENT";
+
+    @Getter
+    @Setter
     @Column(name = "funding_status")
     private String fundingStatus;
 
@@ -179,6 +184,9 @@ public class Task {
         }
         if (collaborative == null) {
             collaborative = false;
+        }
+        if (taskType == null || taskType.isBlank()) {
+            taskType = "DEVELOPMENT";
         }
     }
 
