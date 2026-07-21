@@ -16,10 +16,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -82,6 +85,63 @@ class TaskSubmissionServiceTest {
                 .hasMessage("Only the project owner can review this submission");
 
         verify(paymentService, never()).releaseRewardForApprovedSubmission(any(TaskSubmission.class));
+    }
+
+    @Test
+    void approvingSubmissionClosesCompetingSubmissionsWithoutPenaltyOrPayment() {
+        User owner = sampleUser(1L, "owner@nexhub.dev");
+        User winner = sampleUser(2L, "winner@nexhub.dev");
+        User competingDeveloper = sampleUser(3L, "competitor@nexhub.dev");
+        competingDeveloper.setReputation_score(45);
+        competingDeveloper.setStreak_day(4);
+
+        TaskSubmission approvedSubmission = sampleSubmission(owner, winner);
+        Task task = approvedSubmission.getTask();
+
+        TaskAssignment competingAssignment = new TaskAssignment();
+        setField(competingAssignment, "id", 31L);
+        competingAssignment.setTask(task);
+        competingAssignment.setUser(competingDeveloper);
+        competingAssignment.setStatus("active");
+
+        TaskSubmission competingSubmission = new TaskSubmission();
+        setField(competingSubmission, "id", 41L);
+        competingSubmission.setTask(task);
+        competingSubmission.setAssignment(competingAssignment);
+        competingSubmission.setUser(competingDeveloper);
+        competingSubmission.setStatus("submitted");
+        competingSubmission.setReviewComments("Promising approach");
+
+        when(taskSubmissionRepository.findById(40L)).thenReturn(Optional.of(approvedSubmission));
+        when(userRepository.findByEmail(owner.getEmail())).thenReturn(Optional.of(owner));
+        when(taskSubmissionRepository.findByTask_IdAndIdNotAndStatusIn(
+                eq(20L), eq(40L), any()
+        )).thenReturn(List.of(competingSubmission));
+        when(taskSubmissionRepository.save(any(TaskSubmission.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        taskSubmissionService.updateSubmission(
+                new TaskSubmissionUpdateRequest(40L, null, "approved", null, owner.getId(), null),
+                owner.getEmail()
+        );
+
+        assertThat(approvedSubmission.getStatus()).isEqualTo("approved");
+        assertThat(approvedSubmission.getAssignment().getStatus()).isEqualTo("completed");
+        assertThat(competingSubmission.getStatus()).isEqualTo("not_selected");
+        assertThat(competingSubmission.getReviewer()).isEqualTo(owner);
+        assertThat(competingSubmission.getReviewComments()).contains("No reputation penalty was applied");
+        assertThat(competingAssignment.getStatus()).isEqualTo("cancelled");
+        assertThat(competingDeveloper.getReputation_score()).isEqualTo(45);
+        assertThat(competingDeveloper.getStreak_day()).isEqualTo(4);
+
+        verify(paymentService).releaseRewardForApprovedSubmission(approvedSubmission);
+        verify(taskSubmissionRepository).saveAll(List.of(competingSubmission));
+        verify(notificationService).sendNotification(
+                eq(competingDeveloper),
+                contains("closed without a reputation penalty"),
+                eq("INFO"),
+                eq("/task/20")
+        );
     }
 
     private static TaskSubmission sampleSubmission(User owner, User developer) {

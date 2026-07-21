@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface TaskSubmissionRepository extends JpaRepository<TaskSubmission, Long> {
@@ -49,5 +50,12 @@ public interface TaskSubmissionRepository extends JpaRepository<TaskSubmission, 
     @Query("select submission from TaskSubmission submission where lower(submission.pullRequestUrl) in :pullRequestUrls")
     Optional<TaskSubmission> findFirstByPullRequestUrlNormalizedIn(
             @Param("pullRequestUrls") Collection<String> pullRequestUrls
+    );
+
+    @EntityGraph(attributePaths = {"task", "task.project", "user", "assignment", "reviewer"})
+    List<TaskSubmission> findByTask_IdAndIdNotAndStatusIn(
+            Long taskId,
+            Long submissionId,
+            Collection<String> statuses
     );
 }
