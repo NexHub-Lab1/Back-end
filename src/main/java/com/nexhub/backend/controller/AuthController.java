@@ -10,6 +10,7 @@ import com.nexhub.backend.dto.auth.ResetPasswordRequest;
 import com.nexhub.backend.dto.auth.UpdateAccountRequest;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.service.AuthService;
+import com.nexhub.backend.service.FigmaService;
 import com.nexhub.backend.service.GithubService;
 import com.nexhub.backend.utils.JwtUtils;
 import jakarta.validation.Valid;
@@ -34,14 +35,16 @@ public class AuthController {
     private final AuthService authService;
     private final JwtUtils jwtUtils;
     private final GithubService githubService;
+    private final FigmaService figmaService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    public AuthController(AuthService authService, JwtUtils jwtUtils, GithubService githubService) {
+    public AuthController(AuthService authService, JwtUtils jwtUtils, GithubService githubService, FigmaService figmaService) {
         this.authService = authService;
         this.jwtUtils = jwtUtils;
         this.githubService = githubService;
+        this.figmaService = figmaService;
     }
 
     @PostMapping("/login")
@@ -161,6 +164,40 @@ public class AuthController {
                     + "&githubUsername=" + encode(nullSafe(authUser.githubUsername()))
                     + "&profileImageUrl=" + encode(nullSafe(authUser.profileImageUrl()))
                     + "&firstGithubLogin=" + result.firstGithubLogin();
+
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", redirectUrl)
+                    .build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", frontendUrl + "/auth/login?error=" + encode(e.getMessage()))
+                    .build();
+        }
+    }
+
+    @GetMapping("/figma/start")
+    public ResponseEntity<Void> startFigmaLogin() {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header("Location", figmaService.buildAuthorizationUrl())
+                .build();
+    }
+
+    @GetMapping("/figma/callback")
+    public ResponseEntity<Void> figmaCallback(String code, String state) {
+        try {
+            FigmaService.FigmaLoginResult result = figmaService.authenticateWithFigma(code, state);
+            AuthUserResponse authUser = AuthUserResponse.fromUser(result.user());
+
+            String redirectUrl = frontendUrl
+                    + "/auth/figma/callback"
+                    + "?token=" + encode(result.token())
+                    + "&id=" + authUser.id()
+                    + "&username=" + encode(authUser.username())
+                    + "&email=" + encode(authUser.email())
+                    + "&figmaId=" + encode(nullSafe(authUser.figmaId()))
+                    + "&figmaUsername=" + encode(nullSafe(authUser.figmaUsername()))
+                    + "&profileImageUrl=" + encode(nullSafe(authUser.profileImageUrl()))
+                    + "&firstFigmaLogin=" + result.firstFigmaLogin();
 
             return ResponseEntity.status(HttpStatus.FOUND)
                     .header("Location", redirectUrl)

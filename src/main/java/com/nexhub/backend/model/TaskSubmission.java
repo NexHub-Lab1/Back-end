@@ -43,8 +43,13 @@ public class TaskSubmission {
 
     @Getter
     @Setter
-    @Column(name = "pull_request_url", nullable = false, length = 500)
+    @Column(name = "pull_request_url", length = 500)
     private String pullRequestUrl;
+
+    @Getter
+    @Setter
+    @Column(name = "design_url", length = 500)
+    private String designUrl;
 
     @Getter
     @Setter

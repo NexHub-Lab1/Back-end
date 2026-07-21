@@ -23,7 +23,8 @@ public record TaskResponse(
         Date createdAt,
         Date updatedAt,
         Boolean collaborative,
-        List<String> recommendedSkills
+        List<String> recommendedSkills,
+        String taskType
 ) {
     public static TaskResponse fromTask(Task task) {
         return new TaskResponse(
@@ -50,7 +51,8 @@ public record TaskResponse(
                         : task.getRecommendedSkills().stream()
                         .map(tag -> tag.getName())
                         .sorted(String::compareToIgnoreCase)
-                        .toList()
+                        .toList(),
+                task.getTaskType()
         );
     }
 }

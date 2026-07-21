@@ -62,6 +62,18 @@ public class User {
 
     @Getter
     @Setter
+    private String figma_id;
+
+    @Getter
+    @Setter
+    private String figma_username;
+
+    @Getter
+    @Setter
+    private String figma_access_token;
+
+    @Getter
+    @Setter
     private String profile_image_url;
 
     @Getter

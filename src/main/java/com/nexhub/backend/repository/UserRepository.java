@@ -16,6 +16,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select u from User u where u.github_id = :githubId")
     Optional<User> findByGithubId(@Param("githubId") Integer githubId);
 
+    @Query("select u from User u where u.figma_id = :figmaId")
+    Optional<User> findByFigmaId(@Param("figmaId") String figmaId);
+
     @Query("select u from User u where u.github_username = :githubUsername")
     Optional<User> findByGithubUsername(@Param("githubUsername") String githubUsername);
 
