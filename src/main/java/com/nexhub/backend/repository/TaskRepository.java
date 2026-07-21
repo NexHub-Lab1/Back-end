@@ -26,13 +26,18 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Optional<Task> findByIdForGithubIssueSync(@Param("taskId") Long taskId);
 
     @EntityGraph(attributePaths = {"project"})
-    @Query("select task from Task task where lower(task.status) <> 'cancelled'")
+    @Query("""
+            select task from Task task
+            where lower(task.status) not in ('cancelled', 'completed', 'closed')
+              and lower(coalesce(task.fundingStatus, '')) <> 'released'
+            """)
     Page<Task> findAllVisible(Pageable pageable);
 
     @EntityGraph(attributePaths = {"project"})
     @Query("SELECT t FROM Task t WHERE " +
            "(:search IS NULL OR :search = '' OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
-           "((:status IS NULL OR :status = '') AND LOWER(t.status) <> 'cancelled' OR LOWER(t.status) = LOWER(:status)) AND " +
+           "(((:status IS NULL OR :status = '') AND LOWER(t.status) NOT IN ('cancelled', 'completed', 'closed') " +
+           "AND LOWER(COALESCE(t.fundingStatus, '')) <> 'released') OR LOWER(t.status) = LOWER(:status)) AND " +
            "(:taskType IS NULL OR t.taskType = :taskType)")
     Page<Task> searchTasks(
             @Param("search") String search,
@@ -53,7 +58,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     Page<Task> findByProjectId(@Param("projectId") Long projectId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"project"})
-    @Query("select task from Task task where task.project.owner.id = :ownerId and lower(task.status) <> 'cancelled'")
+    @Query("""
+            select task from Task task
+            where task.project.owner.id = :ownerId
+              and lower(task.status) not in ('cancelled', 'completed', 'closed')
+              and lower(coalesce(task.fundingStatus, '')) <> 'released'
+            """)
     Page<Task> findByProjectOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"project"})
