@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.Date;
+import java.util.HashSet;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 
@@ -33,6 +35,12 @@ public class TaskSubmissionService {
     private static final String APPROVED_STATUS = "approved";
     private static final String REJECTED_STATUS = "rejected";
     private static final String CHANGES_REQUESTED_STATUS = "changes_requested";
+    private static final String NOT_SELECTED_STATUS = "not_selected";
+    private static final String CANCELLED_ASSIGNMENT_STATUS = "cancelled";
+    private static final Set<String> COMPETING_PENDING_STATUSES = Set.of(
+            SUBMITTED_STATUS,
+            CHANGES_REQUESTED_STATUS
+    );
     private static final Set<String> ALLOWED_STATUSES = Set.of(
             SUBMITTED_STATUS,
             APPROVED_STATUS,
@@ -175,7 +183,7 @@ public class TaskSubmissionService {
             validatePullRequestUrl(request.pullRequestUrl());
             submission.setPullRequestUrl(request.pullRequestUrl().trim());
         }
-        
+
         if (request.designUrl() != null && ("DESIGN".equalsIgnoreCase(submission.getTask().getTaskType()) || "VISUAL".equalsIgnoreCase(submission.getTask().getTaskType()))) {
             validateDesignUrl(request.designUrl());
             submission.setDesignUrl(request.designUrl().trim());
@@ -202,6 +210,7 @@ public class TaskSubmissionService {
                 syncAssignmentStatusAfterStatusChange(submission, previousStatus, status);
                 if (APPROVED_STATUS.equals(status) && !APPROVED_STATUS.equalsIgnoreCase(previousStatus)) {
                     paymentService.releaseRewardForApprovedSubmission(submission);
+                    closeCompetingSubmissions(submission, reviewer);
                 }
 
                 User developer = submission.getUser();
@@ -240,6 +249,65 @@ public class TaskSubmissionService {
         }
 
         return TaskSubmissionResponse.fromTaskSubmission(taskSubmissionRepository.save(submission));
+    }
+
+    private void closeCompetingSubmissions(TaskSubmission approvedSubmission, User reviewer) {
+        Task task = approvedSubmission.getTask();
+        if (task == null || task.getId() == null || approvedSubmission.getId() == null) {
+            return;
+        }
+
+        List<TaskSubmission> competingSubmissions = taskSubmissionRepository
+                .findByTask_IdAndIdNotAndStatusIn(
+                        task.getId(),
+                        approvedSubmission.getId(),
+                        COMPETING_PENDING_STATUSES
+                );
+        if (competingSubmissions.isEmpty()) {
+            return;
+        }
+
+        Date reviewedAt = now();
+        Set<Long> notifiedUserIds = new HashSet<>();
+        Set<Long> closedAssignmentIds = new HashSet<>();
+        Long approvedAssignmentId = approvedSubmission.getAssignment() == null
+                ? null
+                : approvedSubmission.getAssignment().getId();
+
+        for (TaskSubmission competingSubmission : competingSubmissions) {
+            competingSubmission.setStatus(NOT_SELECTED_STATUS);
+            competingSubmission.setReviewer(reviewer);
+            competingSubmission.setReviewedAt(reviewedAt);
+            competingSubmission.setReviewComments(selectionClosedMessage(competingSubmission.getReviewComments()));
+
+            TaskAssignment assignment = competingSubmission.getAssignment();
+            if (assignment != null
+                    && assignment.getId() != null
+                    && !assignment.getId().equals(approvedAssignmentId)
+                    && closedAssignmentIds.add(assignment.getId())) {
+                assignment.setStatus(CANCELLED_ASSIGNMENT_STATUS);
+                taskAssignmentRepository.save(assignment);
+            }
+
+            User developer = competingSubmission.getUser();
+            if (developer != null && developer.getId() != null && notifiedUserIds.add(developer.getId())) {
+                notificationService.sendNotification(
+                        developer,
+                        "Another submission was selected for '" + task.getTitle()
+                                + "'. Your submission was closed without a reputation penalty.",
+                        "INFO",
+                        "/task/" + task.getId()
+                );
+            }
+        }
+
+        taskSubmissionRepository.saveAll(competingSubmissions);
+    }
+
+    private String selectionClosedMessage(String currentComments) {
+        String message = "Another submission was approved for this task. No reputation penalty was applied.";
+        String normalizedComments = normalizeOptionalText(currentComments);
+        return normalizedComments == null ? message : normalizedComments + "\n\n" + message;
     }
 
     public TaskSubmissionResponse deleteSubmission(Long id) {

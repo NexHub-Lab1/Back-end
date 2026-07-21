@@ -2,6 +2,7 @@ package com.nexhub.backend.controller;
 
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.service.AuthService;
+import com.nexhub.backend.service.FigmaService;
 import com.nexhub.backend.service.GithubService;
 import com.nexhub.backend.utils.JwtUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,12 +32,14 @@ class AuthControllerTest {
     private JwtUtils jwt;
     @Mock
     private GithubService githubService;
+    @Mock
+    private FigmaService figmaService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService, jwt, githubService)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService, jwt, githubService, figmaService)).build();
     }
 
     @Nested

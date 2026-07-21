@@ -166,11 +166,11 @@ public class FigmaService {
         user.setFigma_id(figmaUser.id());
         user.setFigma_username(figmaUser.handle());
         user.setFigma_access_token(accessToken);
-        
+
         if (user.getProfile_image_url() == null || user.getProfile_image_url().isBlank()) {
             user.setProfile_image_url(figmaUser.imgUrl());
         }
-        
+
         user.setLast_active_at(new Date(System.currentTimeMillis()));
         user.setUpdated_at(new Date(System.currentTimeMillis()));
 
@@ -187,7 +187,7 @@ public class FigmaService {
         if (normalized.isBlank()) {
             normalized = "figma-user";
         }
-        
+
         if (!userRepository.existsByUsername(normalized)) {
             return normalized;
         }

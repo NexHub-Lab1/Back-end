@@ -67,7 +67,12 @@ public class ChatMessageService {
         String preview = trimmedMsg.length() > 50 ? trimmedMsg.substring(0, 47) + "..." : trimmedMsg;
         String notificationMsg = sender.getUsername() + " sent you a message on '" + assignment.getTask().getTitle() + "': " + preview;
         String targetPath = "/profile?tab=chats&chat_id=" + assignmentId;
-        notificationService.sendNotification(recipient, notificationMsg, "INFO", targetPath);
+        notificationService.sendNotification(
+                recipient,
+                notificationMsg,
+                "INFO",
+                targetPath
+        );
 
         return response;
     }
