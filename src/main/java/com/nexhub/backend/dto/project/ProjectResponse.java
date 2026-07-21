@@ -23,7 +23,10 @@ public record ProjectResponse(
         String githubWebhookStatus,
         String githubWebhookLastError,
         Date githubWebhookConnectedAt,
-        Date githubWebhookLastDeliveryAt
+        Date githubWebhookLastDeliveryAt,
+        String figmaFileUrl,
+        String figmaFileName,
+        String figmaThumbnailUrl
 ) {
     public ProjectResponse(
             Long id,
@@ -59,6 +62,9 @@ public record ProjectResponse(
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
                 null
         );
     }
@@ -84,7 +90,10 @@ public record ProjectResponse(
                 project.getGithubWebhookStatus(),
                 project.getGithubWebhookLastError(),
                 project.getGithubWebhookConnectedAt(),
-                project.getGithubWebhookLastDeliveryAt()
+                project.getGithubWebhookLastDeliveryAt(),
+                project.getFigmaFileUrl(),
+                project.getFigmaFileKey(),
+                project.getFigmaThumbnailUrl()
         );
     }
 }

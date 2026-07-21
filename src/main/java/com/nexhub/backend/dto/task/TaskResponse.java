@@ -25,6 +25,7 @@ public record TaskResponse(
         Date updatedAt,
         Boolean collaborative,
         List<String> recommendedSkills,
+        String taskType,
         Long githubIssueId,
         Integer githubIssueNumber,
         String githubIssueUrl,
@@ -59,6 +60,7 @@ public record TaskResponse(
                         .map(tag -> tag.getName())
                         .sorted(String::compareToIgnoreCase)
                         .toList(),
+                task.getTaskType(),
                 task.getGithubIssueId(),
                 task.getGithubIssueNumber(),
                 task.getGithubIssueUrl(),

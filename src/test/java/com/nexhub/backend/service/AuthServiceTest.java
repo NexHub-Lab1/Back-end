@@ -49,6 +49,9 @@ class AuthServiceTest {
     @Mock
     private TagRepository tagRepository;
 
+    @Mock
+    private EmailService emailService;
+
     @InjectMocks
     private AuthService authService;
 

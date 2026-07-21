@@ -79,6 +79,7 @@ class ProjectServiceTest {
                     "Platform for builders",
                     "https://github.com/nexhub/backend",
                     null,
+                    null,
                     Set.of("AI", "Open Source")
             ));
 
@@ -186,6 +187,7 @@ class ProjectServiceTest {
                     "NexHub API",
                     "Updated description",
                     "https://github.com/nexhub/api",
+                    null,
                     "paused",
                     Set.of("Web3")
             ));
@@ -204,6 +206,7 @@ class ProjectServiceTest {
                     " ",
                     "Platform for builders",
                     "https://github.com/nexhub/backend",
+                    null,
                     "active",
                     Set.of()
             ))).isInstanceOf(IllegalArgumentException.class)
@@ -217,6 +220,7 @@ class ProjectServiceTest {
                     "NexHub",
                     "Platform for builders",
                     "https://gitlab.com/nexhub/backend",
+                    null,
                     "active",
                     Set.of()
             ))).isInstanceOf(IllegalArgumentException.class)

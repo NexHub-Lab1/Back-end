@@ -59,7 +59,7 @@ class TaskSubmissionServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         taskSubmissionService.updateSubmission(
-                new TaskSubmissionUpdateRequest(40L, null, "approved", null, 99L, null),
+                new TaskSubmissionUpdateRequest(40L, null, null, "approved", null, 99L, null),
                 owner.getEmail()
         );
 
@@ -78,7 +78,7 @@ class TaskSubmissionServiceTest {
         when(userRepository.findByEmail(attacker.getEmail())).thenReturn(Optional.of(attacker));
 
         assertThatThrownBy(() -> taskSubmissionService.updateSubmission(
-                new TaskSubmissionUpdateRequest(40L, null, "approved", null, owner.getId(), null),
+                new TaskSubmissionUpdateRequest(40L, null, null, "approved", null, owner.getId(), null),
                 attacker.getEmail()
         ))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -121,7 +121,7 @@ class TaskSubmissionServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         taskSubmissionService.updateSubmission(
-                new TaskSubmissionUpdateRequest(40L, null, "approved", null, owner.getId(), null),
+                new TaskSubmissionUpdateRequest(40L, null, null, "approved", null, owner.getId(), null),
                 owner.getEmail()
         );
 

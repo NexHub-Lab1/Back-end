@@ -13,7 +13,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 @RestController
@@ -21,6 +23,28 @@ import java.util.NoSuchElementException;
 @RequiredArgsConstructor
 public class ProjectController {
     private final ProjectService projectService;
+
+    @PostMapping("/import-figma")
+    public ResponseEntity<ApiResponse<ProjectResponse>> importFigma(
+            @RequestBody Map<String, String> requestBody,
+            Authentication authentication
+    ) {
+        try {
+            if (authentication == null || authentication.getName() == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("Authentication required"));
+            }
+            String figmaUrl = requestBody.get("figmaUrl");
+            if (figmaUrl == null || figmaUrl.isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error("Figma URL is required"));
+            }
+            ProjectResponse response = projectService.importFigmaProject(figmaUrl, authentication.getName());
+            return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Figma project imported successfully", response));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<PagedResponse<ProjectResponse>>> getAll(

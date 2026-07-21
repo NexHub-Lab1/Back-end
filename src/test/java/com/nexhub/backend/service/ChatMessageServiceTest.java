@@ -76,7 +76,7 @@ class ChatMessageServiceTest {
                 eq(developer),
                 contains("sent you a message"),
                 eq("INFO"),
-                eq("/profile?tab=chats&assignmentId=30")
+                eq("/profile?tab=chats&chat_id=30")
         );
     }
 

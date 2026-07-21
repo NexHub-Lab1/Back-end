@@ -27,7 +27,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/signup", "/api/auth/signout").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/forgotpassword", "/api/auth/resetpassword").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/github/start", "/api/auth/github/callback").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/github/start", "/api/auth/github/callback", "/api/auth/figma/start", "/api/auth/figma/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/projects", "/api/projects/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/tasks", "/api/tasks/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/all_users_details", "/api/users/details/**", "/api/users/followed/**", "/api/users/followers/**").permitAll()

@@ -10,6 +10,8 @@ public record AuthUserResponse(
         String email,
         Integer githubId,
         String githubUsername,
+        String figmaId,
+        String figmaUsername,
         String profileImageUrl,
         List<String> skills,
         Boolean emailNotificationsEnabled
@@ -21,6 +23,8 @@ public record AuthUserResponse(
                 user.getEmail(),
                 user.getGithub_id(),
                 user.getGithub_username(),
+                user.getFigma_id(),
+                user.getFigma_username(),
                 user.getProfile_image_url(),
                 user.getSkills() == null
                         ? List.of()

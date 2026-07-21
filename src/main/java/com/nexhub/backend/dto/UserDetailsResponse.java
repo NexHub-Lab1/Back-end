@@ -16,7 +16,9 @@ public record UserDetailsResponse(
         Date last_active_at,
         Date created_at,
         Integer reputationScore,
-        Integer totalPoints
+        Integer totalPoints,
+        String githubUsername,
+        String figmaUsername
 ) {
     public static UserDetailsResponse fromUser(User user) {
         return new UserDetailsResponse(
@@ -35,7 +37,9 @@ public record UserDetailsResponse(
                 user.getLast_active_at(),
                 user.getCreated_at(),
                 user.getReputation_score() == null ? 0 : user.getReputation_score(),
-                user.getTotal_points() == null ? 0 : user.getTotal_points()
+                user.getTotal_points() == null ? 0 : user.getTotal_points(),
+                user.getGithub_username(),
+                user.getFigma_username()
         );
     }
 }

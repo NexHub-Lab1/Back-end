@@ -27,6 +27,7 @@ public class AuthService {
     private final TaskAssignmentRepository taskAssignmentRepository;
     private final TaskSubmissionRepository taskSubmissionRepository;
     private final TagRepository tagRepository;
+    private final EmailService emailService;
 
     public AuthService(
             UserRepository userRepository,
@@ -34,7 +35,8 @@ public class AuthService {
             ProjectRepository projectRepository,
             TaskAssignmentRepository taskAssignmentRepository,
             TaskSubmissionRepository taskSubmissionRepository,
-            TagRepository tagRepository
+            TagRepository tagRepository,
+            EmailService emailService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -42,6 +44,7 @@ public class AuthService {
         this.taskAssignmentRepository = taskAssignmentRepository;
         this.taskSubmissionRepository = taskSubmissionRepository;
         this.tagRepository = tagRepository;
+        this.emailService = emailService;
     }
 
     public User signup(String username, String email, String password) {
@@ -78,7 +81,19 @@ public class AuthService {
         user.setFollows(new HashSet<>());
         user.setSkills(new HashSet<>());
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        try {
+            emailService.sendNotificationEmail(
+                    savedUser.getEmail(),
+                    "Welcome to NexHub!",
+                    "Hi " + savedUser.getUsername() + "! Welcome to NexHub, the platform where designers and developers collaborate and build projects together. We are thrilled to have you on board!"
+            );
+        } catch (Exception e) {
+            // Log warning but do not fail signup
+        }
+
+        return savedUser;
     }
 
     public User login(String emailOrUsername, String password) {

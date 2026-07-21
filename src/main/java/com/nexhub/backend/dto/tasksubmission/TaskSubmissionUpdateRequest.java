@@ -7,8 +7,10 @@ public record TaskSubmissionUpdateRequest(
         @NotNull(message = "El ID de la entrega es obligatorio")
         Long id,
 
-        @Size(max = 500, message = "La URL del Pull Request no puede superar los 500 caracteres")
         String pullRequestUrl,
+
+        @Size(max = 500, message = "La URL de Figma o diseño no puede superar los 500 caracteres")
+        String designUrl,
 
         @Size(max = 50, message = "El estado no puede superar los 50 caracteres")
         String status,

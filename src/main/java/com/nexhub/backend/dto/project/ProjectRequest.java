@@ -17,9 +17,10 @@ public record ProjectRequest(
         @Size(max = 2000, message = "La descripción no puede superar los 2000 caracteres")
         String description,
 
-        @NotBlank(message = "El repositorio de GitHub es obligatorio")
         @Size(max = 255, message = "La URL del repositorio es demasiado larga")
         String githubRepo,
+
+        String figmaFileUrl,
 
         @Size(max = 50, message = "El estado no puede superar los 50 caracteres")
         String status,
