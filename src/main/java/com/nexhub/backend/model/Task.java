@@ -20,6 +20,7 @@ import lombok.Setter;
 import org.hibernate.annotations.BatchSize;
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -95,6 +96,46 @@ public class Task {
     @Setter
     @Column(name = "collaborative")
     private Boolean collaborative = false;
+
+    @Getter
+    @Setter
+    @Column(name = "github_issue_id")
+    private Long githubIssueId;
+
+    @Getter
+    @Setter
+    @Column(name = "github_issue_number")
+    private Integer githubIssueNumber;
+
+    @Getter
+    @Setter
+    @Column(name = "github_issue_url", length = 1000)
+    private String githubIssueUrl;
+
+    @Getter
+    @Setter
+    @Column(name = "github_issue_state", length = 32)
+    private String githubIssueState;
+
+    @Getter
+    @Setter
+    @Column(name = "github_issue_sync_status", length = 32)
+    private String githubIssueSyncStatus;
+
+    @Getter
+    @Setter
+    @Column(name = "github_issue_last_error", columnDefinition = "TEXT")
+    private String githubIssueLastError;
+
+    @Getter
+    @Setter
+    @Column(name = "github_issue_last_synced_at")
+    private Timestamp githubIssueLastSyncedAt;
+
+    @Getter
+    @Setter
+    @Column(name = "github_issue_last_delivery_id", length = 100)
+    private String githubIssueLastDeliveryId;
 
     @Getter
     @Setter
