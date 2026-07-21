@@ -75,12 +75,7 @@ public class ProjectService {
         }
         if (request.figmaFileUrl() != null) {
             project.setFigmaFileUrl(request.figmaFileUrl().trim());
-            try {
-                String fileKey = figmaService.extractFileKey(request.figmaFileUrl().trim());
-                project.setFigmaFileKey(fileKey);
-            } catch (Exception e) {
-                // Ignore key extraction error if invalid url format
-            }
+            project.setFigmaFileKey(figmaService.extractFileKey(request.figmaFileUrl().trim()));
         }
         project.setStatus(normalizeStatus(request.status()));
         project.setCreated_at(now());
@@ -107,7 +102,11 @@ public class ProjectService {
         }
 
         String fileKey = figmaService.extractFileKey(figmaUrl);
-        FigmaService.FigmaFileMetadata metadata = figmaService.fetchFileMetadata(fileKey, owner.getFigma_access_token());
+        projectRepository.findByOwner_IdAndFigmaFileKey(owner.getId(), fileKey)
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("This Figma file is already imported as " + existing.getName());
+                });
+        FigmaService.FigmaFileMetadata metadata = figmaService.fetchFileMetadata(fileKey, owner);
 
         Project project = new Project();
         project.setOwner(owner);
@@ -145,13 +144,9 @@ public class ProjectService {
             project.setGithubRepo(request.githubRepo().trim());
         }
         if (request.figmaFileUrl() != null) {
-            project.setFigmaFileUrl(request.figmaFileUrl().trim());
-            try {
-                String fileKey = figmaService.extractFileKey(request.figmaFileUrl().trim());
-                project.setFigmaFileKey(fileKey);
-            } catch (Exception e) {
-                // Ignore extraction errors
-            }
+            String figmaFileUrl = request.figmaFileUrl().trim();
+            project.setFigmaFileUrl(figmaFileUrl);
+            project.setFigmaFileKey(figmaFileUrl.isBlank() ? null : figmaService.extractFileKey(figmaFileUrl));
         }
         if (request.status() != null && !request.status().isBlank()) {
             project.setStatus(request.status().trim());
@@ -234,6 +229,9 @@ public class ProjectService {
         }
         if (hasGithub && !isGithubRepositoryUrl(githubRepo)) {
             throw new IllegalArgumentException("Project repository must be a valid GitHub repository URL");
+        }
+        if (hasFigma) {
+            figmaService.extractFileKey(figmaFileUrl);
         }
     }
 

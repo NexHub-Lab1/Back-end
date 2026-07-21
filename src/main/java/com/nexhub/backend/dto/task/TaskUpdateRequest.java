@@ -41,6 +41,9 @@ public record TaskUpdateRequest(
 
         Boolean collaborative,
 
-        Set<String> recommendedSkills
+        Set<String> recommendedSkills,
+
+        @Size(max = 20, message = "El tipo de tarea no puede superar los 20 caracteres")
+        String taskType
 ) {
 }

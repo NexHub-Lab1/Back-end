@@ -1,10 +1,12 @@
 package com.nexhub.backend.service;
 
 import com.nexhub.backend.dto.tasksubmission.TaskSubmissionUpdateRequest;
+import com.nexhub.backend.dto.tasksubmission.TaskSubmissionRequest;
 import com.nexhub.backend.model.Project;
 import com.nexhub.backend.model.Task;
 import com.nexhub.backend.model.TaskAssignment;
 import com.nexhub.backend.model.TaskSubmission;
+import com.nexhub.backend.model.TaskType;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.repository.TaskAssignmentRepository;
 import com.nexhub.backend.repository.TaskSubmissionRepository;
@@ -46,6 +48,33 @@ class TaskSubmissionServiceTest {
 
     @InjectMocks
     private TaskSubmissionService taskSubmissionService;
+
+    @Test
+    void designTaskAcceptsFigmaLinkWithoutPullRequest() {
+        User owner = sampleUser(1L, "owner@nexhub.dev");
+        User designer = sampleUser(2L, "designer@nexhub.dev");
+        TaskSubmission sample = sampleSubmission(owner, designer);
+        TaskAssignment assignment = sample.getAssignment();
+        assignment.getTask().setTaskType(TaskType.DESIGN);
+        assignment.getTask().setDeadline(java.sql.Date.valueOf("2027-01-01"));
+        assignment.getTask().setMaxAttempts(2);
+        assignment.setAttemptsUsed(0);
+
+        when(taskAssignmentRepository.findById(30L)).thenReturn(Optional.of(assignment));
+        when(taskSubmissionRepository.save(any(TaskSubmission.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = taskSubmissionService.createSubmission(new TaskSubmissionRequest(
+                30L,
+                null,
+                "https://www.figma.com/design/file-key/Checkout",
+                "Responsive checkout screens",
+                null
+        ));
+
+        assertThat(response.designUrl()).contains("figma.com/design/file-key");
+        assertThat(response.pullRequestUrl()).isNull();
+    }
 
     @Test
     void approvedRewardUsesAuthenticatedProjectOwnerInsteadOfRequestedReviewerId() {

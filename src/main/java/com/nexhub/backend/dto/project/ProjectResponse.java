@@ -25,7 +25,7 @@ public record ProjectResponse(
         Date githubWebhookConnectedAt,
         Date githubWebhookLastDeliveryAt,
         String figmaFileUrl,
-        String figmaFileName,
+        String figmaFileKey,
         String figmaThumbnailUrl
 ) {
     public ProjectResponse(

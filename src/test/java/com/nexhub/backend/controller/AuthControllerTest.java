@@ -20,6 +20,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.sql.Date;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +42,29 @@ class AuthControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(authService, jwt, githubService, figmaService)).build();
+    }
+
+    @Nested
+    @DisplayName("GET /api/auth/figma/start")
+    class FigmaLoginEndpointTests {
+
+        @Test
+        void redirectsToFigmaAndStoresStateInHttpOnlyCookie() throws Exception {
+            when(figmaService.buildAuthorizationRequest()).thenReturn(
+                    new FigmaService.FigmaAuthorizationRequest("https://www.figma.com/oauth?state=signed-state", "signed-state")
+            );
+            when(figmaService.usesSecureRedirect()).thenReturn(true);
+
+            mockMvc.perform(get("/api/auth/figma/start"))
+                    .andExpect(status().isFound())
+                    .andExpect(header().string("Location", "https://www.figma.com/oauth?state=signed-state"))
+                    .andExpect(header().string("Set-Cookie", org.hamcrest.Matchers.allOf(
+                            org.hamcrest.Matchers.containsString("figma_oauth_state=signed-state"),
+                            org.hamcrest.Matchers.containsString("HttpOnly"),
+                            org.hamcrest.Matchers.containsString("Secure"),
+                            org.hamcrest.Matchers.containsString("SameSite=Lax")
+                    )));
+        }
     }
 
     @Nested

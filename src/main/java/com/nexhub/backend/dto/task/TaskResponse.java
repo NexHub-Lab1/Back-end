@@ -60,7 +60,7 @@ public record TaskResponse(
                         .map(tag -> tag.getName())
                         .sorted(String::compareToIgnoreCase)
                         .toList(),
-                task.getTaskType(),
+                task.getTaskType() == null ? "DEVELOPMENT" : task.getTaskType().name(),
                 task.getGithubIssueId(),
                 task.getGithubIssueNumber(),
                 task.getGithubIssueUrl(),

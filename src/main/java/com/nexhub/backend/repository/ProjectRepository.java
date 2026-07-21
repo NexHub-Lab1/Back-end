@@ -28,6 +28,8 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     List<Project> findByOwner_Id(Long id);
 
+    Optional<Project> findByOwner_IdAndFigmaFileKey(Long ownerId, String figmaFileKey);
+
     @EntityGraph(attributePaths = {"owner"})
     Page<Project> findAll(Pageable pageable);
 

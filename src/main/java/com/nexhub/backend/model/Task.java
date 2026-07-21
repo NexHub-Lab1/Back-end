@@ -7,6 +7,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
@@ -74,8 +76,9 @@ public class Task {
 
     @Getter
     @Setter
+    @Enumerated(EnumType.STRING)
     @Column(name = "task_type", nullable = false, columnDefinition = "VARCHAR(255) DEFAULT 'DEVELOPMENT'")
-    private String taskType = "DEVELOPMENT";
+    private TaskType taskType = TaskType.DEVELOPMENT;
 
     @Getter
     @Setter
@@ -185,8 +188,8 @@ public class Task {
         if (collaborative == null) {
             collaborative = false;
         }
-        if (taskType == null || taskType.isBlank()) {
-            taskType = "DEVELOPMENT";
+        if (taskType == null) {
+            taskType = TaskType.DEVELOPMENT;
         }
     }
 

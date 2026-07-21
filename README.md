@@ -68,6 +68,18 @@ La URL del webhook debe ser HTTPS y accesible desde Internet; Mercado Pago no pu
 
 Las rewards financiables se expresan en ARS, ya que la integracion de prueba corresponde a Mercado Pago Argentina. El saldo de la wallet es interno a NexHub; no implementa retiros hacia la cuenta del developer.
 
+## Integracion de Figma
+
+El login de Figma y la importacion de archivos requieren una OAuth App configurada con los scopes `current_user:read` y `file_metadata:read`.
+
+Variables de entorno:
+
+   FIGMA_CLIENT_ID=tu-client-id
+   FIGMA_CLIENT_SECRET=tu-client-secret
+   FIGMA_REDIRECT_URI=http://localhost:8080/api/auth/figma/callback
+
+En Render, `FIGMA_REDIRECT_URI` debe usar la URL publica HTTPS del backend. Esa misma URL debe registrarse como redirect URL en la OAuth App de Figma. Los tokens se renuevan automaticamente cuando Figma entrega un refresh token.
+
 ## Detalles de Implementacion
 
 * Docker Multi-stage: El archivo Dockerfile utiliza una etapa de build basada en JDK 17 para compilar el codigo y una etapa de runtime basada en JRE 17 para minimizar el tamaño de la imagen final.

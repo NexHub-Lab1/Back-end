@@ -70,7 +70,18 @@ public class User {
 
     @Getter
     @Setter
+    @Column(name = "figma_access_token", length = 1000)
     private String figma_access_token;
+
+    @Getter
+    @Setter
+    @Column(name = "figma_refresh_token", length = 1000)
+    private String figma_refresh_token;
+
+    @Getter
+    @Setter
+    @Column(name = "figma_token_expires_at")
+    private java.sql.Timestamp figma_token_expires_at;
 
     @Getter
     @Setter

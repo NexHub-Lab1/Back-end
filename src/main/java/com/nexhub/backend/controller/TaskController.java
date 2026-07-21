@@ -30,9 +30,17 @@ public class TaskController {
     public ResponseEntity<ApiResponse<PagedResponse<TaskResponse>>> getAll(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String taskType,
             @PageableDefault(size = 9) Pageable pageable
     ) {
-        return ResponseEntity.ok(ApiResponse.success("List of tasks", taskService.getAllTasks(search, status, pageable)));
+        try {
+            return ResponseEntity.ok(ApiResponse.success(
+                    "List of tasks",
+                    taskService.getAllTasks(search, status, taskType, pageable)
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(e.getMessage()));
+        }
     }
 
     @GetMapping("/featured")

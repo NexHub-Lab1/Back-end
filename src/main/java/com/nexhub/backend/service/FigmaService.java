@@ -21,6 +21,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 import java.util.UUID;
@@ -31,8 +34,10 @@ import java.util.UUID;
 public class FigmaService {
     private static final String FIGMA_AUTHORIZE_URL = "https://www.figma.com/oauth";
     private static final String FIGMA_ACCESS_TOKEN_URL = "https://api.figma.com/v1/oauth/token";
+    private static final String FIGMA_REFRESH_TOKEN_URL = "https://api.figma.com/v1/oauth/refresh";
     private static final String FIGMA_USER_URL = "https://api.figma.com/v1/me";
     private static final String FIGMA_USER_AGENT = "NexHub";
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
 
     private final UserRepository userRepository;
     private final JwtUtils jwtUtils;
@@ -48,27 +53,33 @@ public class FigmaService {
     @Value("${figma.oauth.redirect-uri}")
     private String redirectUri;
 
-    public String buildAuthorizationUrl() {
+    public FigmaAuthorizationRequest buildAuthorizationRequest() {
+        requireOAuthConfiguration();
         String state = jwtUtils.generateStateToken("figma-oauth");
         String query = "client_id=" + encode(clientId)
                 + "&redirect_uri=" + encode(redirectUri)
-                + "&scope=" + encode("current_user:read,file_content:read")
+                + "&scope=" + encode("current_user:read,file_metadata:read")
                 + "&state=" + encode(state)
                 + "&response_type=code";
-        return FIGMA_AUTHORIZE_URL + "?" + query;
+        return new FigmaAuthorizationRequest(FIGMA_AUTHORIZE_URL + "?" + query, state);
     }
 
-    public FigmaLoginResult authenticateWithFigma(String code, String state) {
+    public boolean usesSecureRedirect() {
+        return redirectUri != null && redirectUri.startsWith("https://");
+    }
+
+    public FigmaLoginResult authenticateWithFigma(String code, String state, String expectedState) {
         if (code == null || code.isBlank()) {
             throw new IllegalArgumentException("Figma authorization code is required");
         }
-        if (!jwtUtils.validateStateToken(state, "figma-oauth")) {
+        if (expectedState == null || !expectedState.equals(state)
+                || !jwtUtils.validateStateToken(state, "figma-oauth")) {
             throw new IllegalArgumentException("Invalid Figma OAuth state");
         }
 
-        String accessToken = exchangeCodeForAccessToken(code);
-        FigmaUserProfile figmaUser = fetchFigmaUser(accessToken);
-        FigmaUserLogin figmaUserLogin = loginOrCreateFigmaUser(figmaUser, accessToken);
+        FigmaOAuthTokens tokens = exchangeCodeForTokens(code);
+        FigmaUserProfile figmaUser = fetchFigmaUser(tokens.accessToken());
+        FigmaUserLogin figmaUserLogin = loginOrCreateFigmaUser(figmaUser, tokens);
 
         return new FigmaLoginResult(
                 figmaUserLogin.user(),
@@ -77,10 +88,9 @@ public class FigmaService {
         );
     }
 
-    private String exchangeCodeForAccessToken(String code) {
-        String requestBody = "client_id=" + encode(clientId)
-                + "&client_secret=" + encode(clientSecret)
-                + "&redirect_uri=" + encode(redirectUri)
+    private FigmaOAuthTokens exchangeCodeForTokens(String code) {
+        requireOAuthConfiguration();
+        String requestBody = "redirect_uri=" + encode(redirectUri)
                 + "&code=" + encode(code)
                 + "&grant_type=authorization_code";
 
@@ -88,13 +98,15 @@ public class FigmaService {
                 .uri(URI.create(FIGMA_ACCESS_TOKEN_URL))
                 .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                .header(HttpHeaders.AUTHORIZATION, basicAuthorization())
                 .header(HttpHeaders.USER_AGENT, FIGMA_USER_AGENT)
+                .timeout(REQUEST_TIMEOUT)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
         HttpResponse<String> response = send(request);
         if (response.statusCode() >= 400) {
-            throw new IllegalArgumentException("Unable to exchange Figma code for token: " + response.body());
+            throw new IllegalArgumentException("Unable to exchange Figma authorization code");
         }
 
         try {
@@ -103,7 +115,11 @@ public class FigmaService {
             if (accessToken.isBlank() || "null".equals(accessToken)) {
                 throw new IllegalArgumentException("Figma access token is missing");
             }
-            return accessToken;
+            return new FigmaOAuthTokens(
+                    accessToken,
+                    asNullableString(payload.get("refresh_token")),
+                    expirationFrom(payload.get("expires_in"))
+            );
         } catch (RuntimeException e) {
             throw new IllegalArgumentException("Unable to parse Figma token response");
         }
@@ -115,6 +131,7 @@ public class FigmaService {
                 .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .header(HttpHeaders.USER_AGENT, FIGMA_USER_AGENT)
+                .timeout(REQUEST_TIMEOUT)
                 .GET()
                 .build();
 
@@ -136,7 +153,7 @@ public class FigmaService {
         }
     }
 
-    private FigmaUserLogin loginOrCreateFigmaUser(FigmaUserProfile figmaUser, String accessToken) {
+    private FigmaUserLogin loginOrCreateFigmaUser(FigmaUserProfile figmaUser, FigmaOAuthTokens tokens) {
         if (figmaUser.id() == null || figmaUser.handle() == null || figmaUser.handle().isBlank()) {
             throw new IllegalArgumentException("Incomplete Figma user profile");
         }
@@ -165,7 +182,9 @@ public class FigmaService {
 
         user.setFigma_id(figmaUser.id());
         user.setFigma_username(figmaUser.handle());
-        user.setFigma_access_token(accessToken);
+        user.setFigma_access_token(tokens.accessToken());
+        user.setFigma_refresh_token(tokens.refreshToken());
+        user.setFigma_token_expires_at(tokens.expiresAt());
 
         if (user.getProfile_image_url() == null || user.getProfile_image_url().isBlank()) {
             user.setProfile_image_url(figmaUser.imgUrl());
@@ -222,28 +241,40 @@ public class FigmaService {
         if (url == null || url.isBlank()) {
             throw new IllegalArgumentException("Figma URL is required");
         }
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("figma\\.com/(?:file|design)/([^/\\s?#]+)");
-        java.util.regex.Matcher matcher = pattern.matcher(url);
-        if (matcher.find()) {
-            return matcher.group(1);
+        try {
+            URI uri = URI.create(url.trim());
+            String host = uri.getHost();
+            if (host == null || !(host.equalsIgnoreCase("figma.com") || host.toLowerCase().endsWith(".figma.com"))) {
+                throw new IllegalArgumentException("Invalid Figma file or design URL");
+            }
+
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("^/(?:file|design)/([^/\\s?#]+)");
+            java.util.regex.Matcher matcher = pattern.matcher(uri.getPath());
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Invalid Figma file or design URL");
         }
         throw new IllegalArgumentException("Invalid Figma file or design URL");
     }
 
-    public FigmaFileMetadata fetchFileMetadata(String fileKey, String accessToken) {
+    public FigmaFileMetadata fetchFileMetadata(String fileKey, User owner) {
         if (fileKey == null || fileKey.isBlank()) {
             throw new IllegalArgumentException("Figma file key is required");
         }
-        if (accessToken == null || accessToken.isBlank()) {
-            throw new IllegalArgumentException("Figma access token is required");
+        if (owner == null) {
+            throw new IllegalArgumentException("Figma account owner is required");
         }
 
-        String url = "https://api.figma.com/v1/files/" + encode(fileKey);
+        String accessToken = currentAccessToken(owner);
+        String url = "https://api.figma.com/v1/files/" + encode(fileKey) + "/meta";
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .header(HttpHeaders.USER_AGENT, FIGMA_USER_AGENT)
+                .timeout(REQUEST_TIMEOUT)
                 .GET()
                 .build();
 
@@ -254,12 +285,67 @@ public class FigmaService {
 
         try {
             Map<String, Object> payload = jsonParser.parseMap(response.body());
+            Map<String, Object> file = asMap(payload.get("file"));
             return new FigmaFileMetadata(
-                    asString(payload.get("name")),
-                    asNullableString(payload.get("thumbnail_url"))
+                    asString(file.get("name")),
+                    asNullableString(file.get("thumbnail_url"))
             );
         } catch (RuntimeException e) {
             throw new IllegalArgumentException("Unable to parse Figma file response");
+        }
+    }
+
+    private String currentAccessToken(User owner) {
+        String accessToken = owner.getFigma_access_token();
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new IllegalArgumentException("You must connect your Figma account first.");
+        }
+
+        Timestamp expiresAt = owner.getFigma_token_expires_at();
+        boolean expiresSoon = expiresAt != null
+                && expiresAt.toInstant().isBefore(Instant.now().plusSeconds(60));
+        if (!expiresSoon) {
+            return accessToken;
+        }
+
+        String refreshToken = owner.getFigma_refresh_token();
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalArgumentException("Your Figma connection expired. Sign in with Figma again.");
+        }
+
+        FigmaOAuthTokens refreshed = refreshAccessToken(refreshToken);
+        owner.setFigma_access_token(refreshed.accessToken());
+        owner.setFigma_token_expires_at(refreshed.expiresAt());
+        userRepository.save(owner);
+        return refreshed.accessToken();
+    }
+
+    private FigmaOAuthTokens refreshAccessToken(String refreshToken) {
+        requireOAuthConfiguration();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(FIGMA_REFRESH_TOKEN_URL))
+                .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+                .header(HttpHeaders.AUTHORIZATION, basicAuthorization())
+                .header(HttpHeaders.USER_AGENT, FIGMA_USER_AGENT)
+                .timeout(REQUEST_TIMEOUT)
+                .POST(HttpRequest.BodyPublishers.ofString("refresh_token=" + encode(refreshToken)))
+                .build();
+
+        HttpResponse<String> response = send(request);
+        if (response.statusCode() >= 400) {
+            throw new IllegalArgumentException("Your Figma connection expired. Sign in with Figma again.");
+        }
+
+        try {
+            Map<String, Object> payload = jsonParser.parseMap(response.body());
+            String accessToken = asString(payload.get("access_token"));
+            if (accessToken.isBlank()) {
+                throw new IllegalArgumentException("Figma access token is missing");
+            }
+            return new FigmaOAuthTokens(accessToken, refreshToken, expirationFrom(payload.get("expires_in")));
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException("Unable to refresh Figma connection");
         }
     }
 
@@ -270,9 +356,12 @@ public class FigmaService {
         return normalized + "@users.noreply.figma.local";
     }
 
-    private HttpResponse<String> send(HttpRequest request) {
+    HttpResponse<String> send(HttpRequest request) {
         try {
-            return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            return HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(5))
+                    .build()
+                    .send(request, HttpResponse.BodyHandlers.ofString());
         } catch (IOException e) {
             throw new IllegalArgumentException("Unable to contact Figma API");
         } catch (InterruptedException e) {
@@ -285,6 +374,29 @@ public class FigmaService {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
+    private String basicAuthorization() {
+        String credentials = clientId + ":" + clientSecret;
+        return "Basic " + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private void requireOAuthConfiguration() {
+        if (clientId == null || clientId.isBlank()
+                || clientSecret == null || clientSecret.isBlank()
+                || redirectUri == null || redirectUri.isBlank()) {
+            throw new IllegalArgumentException("Figma OAuth is not configured");
+        }
+    }
+
+    private Timestamp expirationFrom(Object expiresInValue) {
+        if (expiresInValue == null) {
+            return null;
+        }
+        long expiresIn = expiresInValue instanceof Number number
+                ? number.longValue()
+                : Long.parseLong(String.valueOf(expiresInValue));
+        return Timestamp.from(Instant.now().plusSeconds(expiresIn));
+    }
+
     private String asString(Object value) {
         return value == null ? "" : String.valueOf(value);
     }
@@ -293,6 +405,15 @@ public class FigmaService {
         return value == null ? null : String.valueOf(value);
     }
 
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> asMap(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            return (Map<String, Object>) map;
+        }
+        throw new IllegalArgumentException("Expected object in Figma response");
+    }
+
+    public record FigmaAuthorizationRequest(String url, String state) {}
     public record FigmaLoginResult(User user, String token, boolean firstFigmaLogin) {}
 
     private record FigmaUserLogin(User user, boolean firstFigmaLogin) {}
@@ -302,5 +423,11 @@ public class FigmaService {
             String handle,
             String email,
             String imgUrl
+    ) {}
+
+    private record FigmaOAuthTokens(
+            String accessToken,
+            String refreshToken,
+            Timestamp expiresAt
     ) {}
 }

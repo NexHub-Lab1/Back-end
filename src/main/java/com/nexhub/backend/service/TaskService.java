@@ -8,6 +8,7 @@ import com.nexhub.backend.dto.task.TaskUpdateRequest;
 import com.nexhub.backend.model.Project;
 import com.nexhub.backend.model.Tag;
 import com.nexhub.backend.model.Task;
+import com.nexhub.backend.model.TaskType;
 import com.nexhub.backend.model.User;
 import com.nexhub.backend.model.TaskInvitation;
 import com.nexhub.backend.repository.ProjectRepository;
@@ -49,9 +50,10 @@ public class TaskService {
     private final PaymentService paymentService;
 
     @Transactional(readOnly = true)
-    public PagedResponse<TaskResponse> getAllTasks(String search, String status, Pageable pageable) {
+    public PagedResponse<TaskResponse> getAllTasks(String search, String status, String taskType, Pageable pageable) {
         return PagedResponse.fromPage(
-                taskRepository.searchTasks(search, status, pageable).map(TaskResponse::fromTask)
+                taskRepository.searchTasks(search, status, parseOptionalTaskType(taskType), pageable)
+                        .map(TaskResponse::fromTask)
         );
     }
 
@@ -117,6 +119,7 @@ public class TaskService {
         task.setMaxAttempts(normalizeMaxAttempts(request.maxAttempts()));
         task.setMinReputation(request.minReputation() != null ? request.minReputation() : 0);
         task.setCollaborative(request.collaborative() != null ? request.collaborative() : false);
+        task.setTaskType(TaskType.fromNullable(request.taskType()));
         task.setCreated_at(now());
         task.setUpdated_at(now());
         task.setRecommendedSkills(resolveTags(request.recommendedSkills()));
@@ -169,6 +172,9 @@ public class TaskService {
         }
         if (request.recommendedSkills() != null) {
             task.setRecommendedSkills(resolveTags(request.recommendedSkills()));
+        }
+        if (request.taskType() != null) {
+            task.setTaskType(TaskType.fromNullable(request.taskType()));
         }
 
         validateTaskFields(task.getTitle(), task.getDescription(), task.getRewardAmount());
@@ -582,6 +588,10 @@ public class TaskService {
 
     private String normalizeStatus(String status) {
         return (status == null || status.isBlank()) ? "open" : status.trim().toLowerCase();
+    }
+
+    private TaskType parseOptionalTaskType(String taskType) {
+        return taskType == null || taskType.isBlank() ? null : TaskType.fromNullable(taskType);
     }
 
     private Integer normalizeMaxAttempts(Integer maxAttempts) {

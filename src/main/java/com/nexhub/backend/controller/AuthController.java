@@ -17,11 +17,15 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URLEncoder;
@@ -32,6 +36,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    private static final String FIGMA_STATE_COOKIE = "figma_oauth_state";
     private final AuthService authService;
     private final JwtUtils jwtUtils;
     private final GithubService githubService;
@@ -177,20 +182,46 @@ public class AuthController {
 
     @GetMapping("/figma/start")
     public ResponseEntity<Void> startFigmaLogin() {
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .header("Location", figmaService.buildAuthorizationUrl())
-                .build();
+        try {
+            FigmaService.FigmaAuthorizationRequest authorization = figmaService.buildAuthorizationRequest();
+            ResponseCookie stateCookie = ResponseCookie.from(FIGMA_STATE_COOKIE, authorization.state())
+                    .httpOnly(true)
+                    .secure(figmaService.usesSecureRedirect())
+                    .sameSite("Lax")
+                    .path("/api/auth/figma")
+                    .maxAge(600)
+                    .build();
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, authorization.url())
+                    .header(HttpHeaders.SET_COOKIE, stateCookie.toString())
+                    .build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header(HttpHeaders.LOCATION, frontendUrl + "/auth/login?error=" + encode(e.getMessage()))
+                    .build();
+        }
     }
 
     @GetMapping("/figma/callback")
-    public ResponseEntity<Void> figmaCallback(String code, String state) {
+    public ResponseEntity<Void> figmaCallback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @CookieValue(name = FIGMA_STATE_COOKIE, required = false) String expectedState
+    ) {
+        ResponseCookie clearedStateCookie = ResponseCookie.from(FIGMA_STATE_COOKIE, "")
+                .httpOnly(true)
+                .secure(figmaService.usesSecureRedirect())
+                .sameSite("Lax")
+                .path("/api/auth/figma")
+                .maxAge(0)
+                .build();
         try {
-            FigmaService.FigmaLoginResult result = figmaService.authenticateWithFigma(code, state);
+            FigmaService.FigmaLoginResult result = figmaService.authenticateWithFigma(code, state, expectedState);
             AuthUserResponse authUser = AuthUserResponse.fromUser(result.user());
 
             String redirectUrl = frontendUrl
                     + "/auth/figma/callback"
-                    + "?token=" + encode(result.token())
+                    + "#token=" + encode(result.token())
                     + "&id=" + authUser.id()
                     + "&username=" + encode(authUser.username())
                     + "&email=" + encode(authUser.email())
@@ -200,11 +231,13 @@ public class AuthController {
                     + "&firstFigmaLogin=" + result.firstFigmaLogin();
 
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", redirectUrl)
+                    .header(HttpHeaders.LOCATION, redirectUrl)
+                    .header(HttpHeaders.SET_COOKIE, clearedStateCookie.toString())
                     .build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .header("Location", frontendUrl + "/auth/login?error=" + encode(e.getMessage()))
+                    .header(HttpHeaders.LOCATION, frontendUrl + "/auth/login?error=" + encode(e.getMessage()))
+                    .header(HttpHeaders.SET_COOKIE, clearedStateCookie.toString())
                     .build();
         }
     }

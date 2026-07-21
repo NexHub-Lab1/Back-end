@@ -6,6 +6,7 @@ import com.nexhub.backend.dto.tasksubmission.TaskSubmissionResponse;
 import com.nexhub.backend.dto.tasksubmission.TaskSubmissionUpdateRequest;
 import com.nexhub.backend.model.Project;
 import com.nexhub.backend.model.Task;
+import com.nexhub.backend.model.TaskType;
 import com.nexhub.backend.model.TaskAssignment;
 import com.nexhub.backend.model.TaskSubmission;
 import com.nexhub.backend.model.User;
@@ -137,7 +138,7 @@ public class TaskSubmissionService {
         int nextAttempt = currentAttemptsUsed(assignment) + 1;
         Task task = assignment.getTask();
 
-        if ("DESIGN".equalsIgnoreCase(task.getTaskType()) || "VISUAL".equalsIgnoreCase(task.getTaskType())) {
+        if (task.getTaskType() == TaskType.DESIGN) {
             validateDesignUrl(request.designUrl());
         } else {
             validatePullRequestUrl(request.pullRequestUrl());
@@ -179,12 +180,12 @@ public class TaskSubmissionService {
         TaskSubmission submission = findExistingSubmission(request.id());
         String previousStatus = submission.getStatus();
 
-        if (request.pullRequestUrl() != null && ("DEVELOPMENT".equalsIgnoreCase(submission.getTask().getTaskType()) || submission.getTask().getTaskType() == null)) {
+        if (request.pullRequestUrl() != null && (submission.getTask().getTaskType() == TaskType.DEVELOPMENT || submission.getTask().getTaskType() == null)) {
             validatePullRequestUrl(request.pullRequestUrl());
             submission.setPullRequestUrl(request.pullRequestUrl().trim());
         }
 
-        if (request.designUrl() != null && ("DESIGN".equalsIgnoreCase(submission.getTask().getTaskType()) || "VISUAL".equalsIgnoreCase(submission.getTask().getTaskType()))) {
+        if (request.designUrl() != null && submission.getTask().getTaskType() == TaskType.DESIGN) {
             validateDesignUrl(request.designUrl());
             submission.setDesignUrl(request.designUrl().trim());
         }
@@ -385,7 +386,7 @@ public class TaskSubmissionService {
                     || host.isBlank()) {
                 throw new IllegalArgumentException("Design URL must be a valid URL");
             }
-            if (!host.toLowerCase().contains("figma.com")) {
+            if (!(host.equalsIgnoreCase("figma.com") || host.toLowerCase().endsWith(".figma.com"))) {
                 throw new IllegalArgumentException("Design URL must be a valid Figma link (figma.com)");
             }
         } catch (URISyntaxException e) {

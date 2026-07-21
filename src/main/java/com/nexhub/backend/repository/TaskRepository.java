@@ -1,6 +1,7 @@
 package com.nexhub.backend.repository;
 
 import com.nexhub.backend.model.Task;
+import com.nexhub.backend.model.TaskType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -31,8 +32,14 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @EntityGraph(attributePaths = {"project"})
     @Query("SELECT t FROM Task t WHERE " +
            "(:search IS NULL OR :search = '' OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(t.description) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
-           "((:status IS NULL OR :status = '') AND LOWER(t.status) <> 'cancelled' OR LOWER(t.status) = LOWER(:status))")
-    Page<Task> searchTasks(@Param("search") String search, @Param("status") String status, Pageable pageable);
+           "((:status IS NULL OR :status = '') AND LOWER(t.status) <> 'cancelled' OR LOWER(t.status) = LOWER(:status)) AND " +
+           "(:taskType IS NULL OR t.taskType = :taskType)")
+    Page<Task> searchTasks(
+            @Param("search") String search,
+            @Param("status") String status,
+            @Param("taskType") TaskType taskType,
+            Pageable pageable
+    );
 
     @EntityGraph(attributePaths = {"project", "project.owner", "recommendedSkills"})
     @Query("""
