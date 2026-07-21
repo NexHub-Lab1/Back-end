@@ -4,6 +4,7 @@ import com.nexhub.backend.model.Task;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.List;
 
 public record TaskResponse(
@@ -23,7 +24,14 @@ public record TaskResponse(
         Date createdAt,
         Date updatedAt,
         Boolean collaborative,
-        List<String> recommendedSkills
+        List<String> recommendedSkills,
+        Long githubIssueId,
+        Integer githubIssueNumber,
+        String githubIssueUrl,
+        String githubIssueState,
+        String githubIssueSyncStatus,
+        String githubIssueLastError,
+        Timestamp githubIssueLastSyncedAt
 ) {
     public static TaskResponse fromTask(Task task) {
         return new TaskResponse(
@@ -50,7 +58,14 @@ public record TaskResponse(
                         : task.getRecommendedSkills().stream()
                         .map(tag -> tag.getName())
                         .sorted(String::compareToIgnoreCase)
-                        .toList()
+                        .toList(),
+                task.getGithubIssueId(),
+                task.getGithubIssueNumber(),
+                task.getGithubIssueUrl(),
+                task.getGithubIssueState(),
+                task.getGithubIssueSyncStatus(),
+                task.getGithubIssueLastError(),
+                task.getGithubIssueLastSyncedAt()
         );
     }
 }

@@ -261,9 +261,6 @@ public class GithubService {
             if (project.getGithubRepo() == null || project.getGithubRepo().isBlank()) {
                 continue;
             }
-            if ("connected".equalsIgnoreCase(project.getGithubWebhookStatus())) {
-                continue;
-            }
             githubWebhookService.ensureProjectWebhook(project);
         }
     }

@@ -4,6 +4,7 @@ import com.nexhub.backend.dto.PagedResponse;
 import com.nexhub.backend.dto.taskassignment.TaskAssignmentRequest;
 import com.nexhub.backend.dto.taskassignment.TaskAssignmentResponse;
 import com.nexhub.backend.dto.taskassignment.TaskAssignmentUpdateRequest;
+import com.nexhub.backend.event.TaskAssignmentCreatedEvent;
 import com.nexhub.backend.model.Project;
 import com.nexhub.backend.model.Task;
 import com.nexhub.backend.model.TaskAssignment;
@@ -14,6 +15,7 @@ import com.nexhub.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Date;
@@ -30,6 +32,7 @@ public class TaskAssignmentService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final PaymentService paymentService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public PagedResponse<TaskAssignmentResponse> getAllAssignments(Pageable pageable) {
@@ -94,6 +97,7 @@ public class TaskAssignmentService {
         assignment.setAttemptsUsed(0);
 
         TaskAssignment savedAssignment = taskAssignmentRepository.save(assignment);
+        eventPublisher.publishEvent(new TaskAssignmentCreatedEvent(task.getId()));
 
         notificationService.sendNotification(
                 user,
